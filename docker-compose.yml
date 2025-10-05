@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  server-a:
+    build: .
+    container_name: server-a
+    hostname: server-a
+    env_file: .env.server-a
+    ports:
+      - "8080:8080"
+    networks:
+      - game-network
+
+  server-b:
+    build: .
+    container_name: server-b
+    hostname: server-b
+    env_file: .env.server-b
+    ports:
+      - "8081:8080"
+    networks:
+      - game-network
+
+  server-c:
+    build: .
+    container_name: server-c
+    hostname: server-c
+    env_file: .env.server-c
+    ports:
+      - "8082:8080"
+    networks:
+      - game-network
+
+networks:
+  game-network:
+    driver: bridge

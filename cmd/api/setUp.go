@@ -11,9 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// handler <- usecases <- repositories
+// Configs da api de comunicação 
 func SetUpApi(myServerInfo *entities.ServerInfo ,handlers *handlers.CommunicationHandler){
-
 
 	router := gin.Default()
 	routes.SetupRoutes(router,handlers)

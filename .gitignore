@@ -1,1 +1,12 @@
 .env.*
+
+# binários e cache do Go
+/bin/
+/build/
+/dist/
+*.exe
+*.out
+
+# cache de dependências
+go.work
+go.work.sum

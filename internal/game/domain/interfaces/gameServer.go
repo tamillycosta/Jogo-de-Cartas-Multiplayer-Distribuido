@@ -23,7 +23,5 @@ type NotificationHandler interface {
 // representa o contrato completo que um servidor de jogo deve seguir
 // para participar da rede
 type IGameServer interface {
-    ServerInfoProvider
-    NotificationSender
-    NotificationHandler
+   
 }

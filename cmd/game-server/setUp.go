@@ -2,8 +2,8 @@ package gameserver
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
-	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/comunication"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/discovery"
+	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"fmt"
 	"os"

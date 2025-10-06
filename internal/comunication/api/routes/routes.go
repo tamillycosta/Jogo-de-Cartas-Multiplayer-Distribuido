@@ -1,17 +1,22 @@
 package routes
 
 import (
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers"
+	
 
 	"github.com/gin-gonic/gin"
 )
 
 // Rotas da aplicação 
-func SetupRoutes(router *gin.Engine, handler *handlers.CommunicationHandler){
+func SetupRoutes(router *gin.Engine){
 	v1 := router.Group("/api/v1")
 	{
-	  v1.GET("/info", handler.GetInfo)
-	  v1.POST("/notify", handler.ReceiveNotification)
-	  
+	  v1.GET("/info", )
+	  v1.POST("/notify", )
+	 
+	}
+	v2 := router.Group("/api/v2/notify")
+	{
+		v2.POST("/user-exits")
+		v2.POST("/isLog")
 	}
 }

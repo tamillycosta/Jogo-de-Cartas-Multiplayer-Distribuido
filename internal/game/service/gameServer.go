@@ -1,9 +1,9 @@
-package comunication
+package service
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/discovery"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 
 	"sync"
@@ -13,19 +13,17 @@ import (
 // implementa interface game server
 var _ interfaces.IGameServer = (*GameServer)(nil)
 
-type NotificationHandler func(*entities.NotificationMessage) error
+
 
 // modelo para representar um servidor disponivel na rede
 type GameServer struct {
 	MyInfo          *entities.ServerInfo 
-	
 	Mu              sync.RWMutex
 	StartTime       time.Time
-	NotificationHandlers map[string]NotificationHandler 
-	// Discovery para conhecer servidores na rede 
-	Discovery  *discovery.Discovery
-	// Client para comunicar via API
 	
+	// Componente reponssavel por conhecer servidores na rede 
+	Discovery  *discovery.Discovery
+	//  Componente reponssavel por criar interface Client para servidor
 	ApiClient       *client.Client
 }
 
@@ -37,10 +35,9 @@ func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *disco
 		StartTime:     time.Now(),
 		Discovery: discovery,
 		ApiClient:     apiClient,
-		NotificationHandlers: map[string]NotificationHandler{},
 		
 	}
-	gs.registerNotificationHandlers()	// registro de notifições 
+	
 	return  gs
 }
 

@@ -64,3 +64,11 @@ func (c *Client) SendNotification(serverAddress string, port int, notification *
 
     return nil
 }
+
+
+// implementar 
+// verificar se o username ja existe em outro servidor
+// faz broadcast para servres conhecidos 
+func (c *Client) CheckUsernameGlobal()bool{
+	return  true
+}

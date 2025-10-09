@@ -14,14 +14,14 @@ import (
 // e o componente de comunicação (`GameServer`).
 type Handler struct{
 	gameServer *service.GameServer
-	authHandler *authhandler.Authhandler
+	AuthHandler *authhandler.Authhandler
 }
 
 
 func New(gameServer *service.GameServer) *Handler {
 	return &Handler{
 		gameServer: gameServer,
-		authHandler: authhandler.New(gameServer),
+		AuthHandler: authhandler.New(gameServer),
 	}
 }
 

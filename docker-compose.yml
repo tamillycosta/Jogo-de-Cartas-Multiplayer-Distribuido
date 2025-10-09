@@ -1,36 +1,44 @@
 version: "3.9"
 
 services:
-  server-a:
-    build: .
-    container_name: server-a
-    hostname: server-a
-    env_file: .env.server-a
-    ports:
-      - "8080:8080"
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql_data:/var/lib/mysql
     networks:
       - game-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
-  server-b:
+  game-server:
     build: .
-    container_name: server-b
-    hostname: server-b
-    env_file: .env.server-b
+    env_file: .env
+    environment:
+      - SERVER_ID=${SERVER_ID}
+      - SERVER_ADDRESS=${SERVER_ADDRESS}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
-      - "8081:8080"
-    networks:
-      - game-network
-
-  server-c:
-    build: .
-    container_name: server-c
-    hostname: server-c
-    env_file: .env.server-c
-    ports:
-      - "8082:8080"
+      - "${PORT}:8080"
     networks:
       - game-network
 
 networks:
   game-network:
     driver: bridge
+
+volumes:
+  mysql_data:

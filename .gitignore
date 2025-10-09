@@ -1,4 +1,5 @@
 .env.*
+.env
 
 # binários e cache do Go
 /bin/

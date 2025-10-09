@@ -1,64 +1,69 @@
 package gameserver
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/authHandler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/config"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
+	websocket "Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub/webSocket"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub/webSocket/topics"
+
 	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
+	"github.com/gin-gonic/gin"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	utils "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/util"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func getPortFromEnv(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		port, err := strconv.Atoi(value)
-		if err == nil {
-			return port
-		}
-	}
-	return defaultValue
-}
-
-func SetUpGame() (*con.GameServer, *entities.ServerInfo , error) {
+func SetUpServerBaseConfigs() (*entities.ServerInfo){
 	// Configuração do servidor
 	myServerInfo := &entities.ServerInfo{
-		ID:      getEnv("SERVER_ID", "server-a"),
-		Region:  getEnv("REGION", "us-east-1"),
-		Address: getEnv("SERVER_ADDRESS", "server-a"),
-		Port:    getPortFromEnv("PORT", 8080),
+		ID:      utils.GetEnv("SERVER_ID", "server-a"),
+		Region:  utils.GetEnv("REGION", "us-east-1"),
+		Address: utils.GetEnv("SERVER_ADDRESS", "server-a"),
+		Port:    utils.GetPortFromEnv("PORT", 8080),
 		Status:  "active",
 	}
+	return myServerInfo
+}
 
-	// Porta para o gossip protocol (memberlist)
-	gossipPort := getPortFromEnv("GOSSIP_PORT", 7947)
 
-	// Seed servers
-	seedServersEnv := getEnv("SEED_SERVERS", "")
-	var seedServers []string
-	if seedServersEnv != "" {
-		seedServers = strings.Split(seedServersEnv, ",")
+
+
+func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo , error) {
+	myServerInfo := SetUpServerBaseConfigs()
+	discovery , err := discovery.SetUpDiscovery(myServerInfo)
+	if(err!= nil){
+		fmt.Printf("%v",err)
 	}
 
-	// Cria discovery
-	disc, err := discovery.New(myServerInfo, gossipPort, seedServers)
-	if err != nil {
-		return nil, nil,   fmt.Errorf("erro ao criar discovery: %w", err)
-	}
-	
-	// interface api cliente 
+	// interface cliente do servidor de jogo (server to server)
 	apiClient := client.New(5 * time.Second)
 	// servidor do jogo 
-	gameserver := con.New(myServerInfo, apiClient, disc)
+	gameserver := con.New(myServerInfo, apiClient, discovery)
 
+
+	// INJEÇÃO DE DEPENDENCIA
+	db := config.CretaeTable()
+	// DEPOIS MUDAR PARA INTERFACES
+	repository := repository.New(&db)
+	authService := authService.New(repository,apiClient,discovery.KnownServers)
+	
+	broker := pubsub.New()
+	authHandler := handlers.New(authService,broker)
+	wbSocket := websocket.New(broker)
+
+	// servidor do jogo 
+	topics.SetUpTopics(*wbSocket,authHandler)
+
+	// rota WebSocket
+	// cliete _-> servidor
+	router.GET("/ws", func(c *gin.Context) {
+        wbSocket.SetWebSocket(c.Writer, c.Request)
+    }) 
 	return  gameserver, myServerInfo,  nil
 }

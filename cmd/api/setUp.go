@@ -3,7 +3,7 @@ package api
 import (
 
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers"
-	//"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/routes"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/routes"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"fmt"
 	"log"
@@ -12,13 +12,12 @@ import (
 )
 
 // Configs da api de comunicação 
-func SetUpApi(myServerInfo *entities.ServerInfo ,handlers *handlers.Handler){
+func SetUpApi(router *gin.Engine,myServerInfo *entities.ServerInfo ,handlers *handlers.Handler){
 
-	router := gin.Default()
 	// seta as rotas do handler
-	//routes.SetupRoutes(router,handlers)
+	routes.SetupRoutes(router,handlers)
 
 	port := fmt.Sprintf(":%d", myServerInfo.Port)
     log.Printf("Server %s starting on %s\n", myServerInfo.ID, port)
-    router.Run(port)
+   
 }

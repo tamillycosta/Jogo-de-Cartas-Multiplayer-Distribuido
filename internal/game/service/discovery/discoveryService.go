@@ -4,27 +4,46 @@
 // uma lista de servidores conhecidos (KnownServers) e se conectem
 // a seeds quando disponíveis.
 
-
 package discovery
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
-	"sync"
-	"github.com/hashicorp/memberlist"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/util"
 	"encoding/json"
 	"fmt"
-	"time"
-	"log"
 	"io"
+	"log"
+	"sync"
+	"time"
+	"strings"
+	"github.com/hashicorp/memberlist"
 )
 
-// Componente respossavel por descobrir novos servidores na rede 
+// Componente respossavel por descobrir novos servidores na rede
 type Discovery struct {
 	MyInfo       *entities.ServerInfo
 	KnownServers map[string]*entities.ServerInfo
 	mu           sync.RWMutex
 	memberlist   *memberlist.Memberlist
 }
+
+
+func SetUpDiscovery(myServerInfo *entities.ServerInfo) (*Discovery, error){
+	// Porta para o gossip protocol (memberlist)
+	gossipPort := util.GetPortFromEnv("GOSSIP_PORT", 7947)
+
+	// Seed servers
+	seedServersEnv := util.GetEnv("SEED_SERVERS", "")
+	var seedServers []string
+	if seedServersEnv != "" {
+		seedServers = strings.Split(seedServersEnv, ",")
+	}
+
+	// Cria discovery
+	return New(myServerInfo, gossipPort, seedServers)
+	
+}
+
 
 
 //cria uma nova instância de Discovery, inicializa o memberlist

@@ -5,9 +5,11 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
-
+	aS "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"sync"
 	"time"
+
+	
 )
 
 // implementa interface game server
@@ -20,7 +22,7 @@ type GameServer struct {
 	MyInfo          *entities.ServerInfo 
 	Mu              sync.RWMutex
 	StartTime       time.Time
-	
+	Auth 			*aS.AuthService
 	// Componente reponssavel por conhecer servidores na rede 
 	Discovery  *discovery.Discovery
 	//  Componente reponssavel por criar interface Client para servidor

@@ -1,29 +1,31 @@
 package client
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/auth"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	
 	"time"
 )
 
 // responsável por realizar requisições HTTP entre os servidores do jogo.
 // faz comunicação **server-to-server**
 type Client struct {
-	httpClient *http.Client
+	HttpClient *http.Client
 	timeout    time.Duration
-	
+	AuthInterface *auth.AuthInterface
 }
 
 
 func New(timeout time.Duration) *Client {
-    return &Client{
-        httpClient: &http.Client{Timeout: timeout},
+    client := Client{
+        HttpClient: &http.Client{Timeout: timeout},
         timeout:    timeout,
+		
     }
+	client.AuthInterface = auth.New(*client.HttpClient)
+	return &client
 }
 
 
@@ -32,7 +34,7 @@ func New(timeout time.Duration) *Client {
 func (c *Client) AskServerInfo(serverAddress string, port int) (*entities.ServerInfo, error){
 	url := fmt.Sprintf("http://%s:%d/api/v1/info", serverAddress, port)
 
-	resp , err := c.httpClient.Get(url)
+	resp , err := c.HttpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get health: %w", err)
 	}
@@ -46,29 +48,4 @@ func (c *Client) AskServerInfo(serverAddress string, port int) (*entities.Server
 }
 
 
-// envia uma notificação para outro servidor,
-// através do endpoint HTTP POST `/api/v1/notify`.
-func (c *Client) SendNotification(serverAddress string, port int, notification *entities.NotificationMessage) error{
-	url	:= fmt.Sprintf("http://%s:%d/api/v1/notify",serverAddress, port)
 
-	jsonData, err := json.Marshal(notification)
-    if err != nil {
-        return fmt.Errorf("failed to marshal notification: %w", err)
-    }
-
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
-    if err != nil {
-        return fmt.Errorf("failed to send notification: %w", err)
-    }
-    defer resp.Body.Close()
-
-    return nil
-}
-
-
-// implementar 
-// verificar se o username ja existe em outro servidor
-// faz broadcast para servres conhecidos 
-func (c *Client) CheckUsernameGlobal()bool{
-	return  true
-}

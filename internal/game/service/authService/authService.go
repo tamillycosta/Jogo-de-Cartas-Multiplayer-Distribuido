@@ -37,19 +37,25 @@ func (as *AuthService) CreateAccount(username string) error {
     }
     
     // 3. Verifica globalmente ()
+    if(len(as.knownServers) == 0){
+        return errors.New("não temos servidores conhecidos")
+    }
+
     if as.checkUsernameGlobal(username) {
         return errors.New("este username ja existe em outro servidor")
     }
     
     // 5. Cria no BD
     _, err := as.repo.Create(username)
+    // Deois expalha o usuario ara os outros servidres relicarem 
     return err
 }
 
 // faz broadcast na api rest para verificar se o username esta disponivel 
 func (as *AuthService) checkUsernameGlobal(username string) bool {
+   
     for _, server := range as.knownServers {
-        isAvailable, err := as.apiClient.AuthInterface.CheckUsernameGlobal(
+        isAvailable, err := as.apiClient.AuthInterface.CheckUsernameAvalible(
             server.Address, 
             server.Port, 
             username,

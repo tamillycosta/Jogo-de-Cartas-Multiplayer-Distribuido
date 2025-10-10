@@ -36,7 +36,7 @@ func SetUpServerBaseConfigs() (*entities.ServerInfo){
 
 func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo , error) {
 	myServerInfo := SetUpServerBaseConfigs()
-	discovery , err := discovery.SetUpDiscovery(myServerInfo)
+	discovery , err := discovery.SetUpDiscovery(myServerInfo,)
 	if(err!= nil){
 		fmt.Printf("%v",err)
 	}

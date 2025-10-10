@@ -18,7 +18,7 @@ func main() {
 	gameServer,serverInfo,_ := gameserver.SetUpGame(router)
 	
 	handler := handlers.New(gameServer)
-
+	router.StaticFile("/test", "./web/client.html") 
 	// 2. Inicializa API de comunicação
 	api.SetUpApi(router,serverInfo, handler)
 

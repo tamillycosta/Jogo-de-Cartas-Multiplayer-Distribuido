@@ -34,6 +34,22 @@ func (r *PlayerRepository) Create(username string, ) (*entities.Player, error){
 }
 
 
+func (r *PlayerRepository) CreateWithID(id, username string) (*entities.Player, error) {
+	player := &entities.Player{
+		ID:       id,
+		Username: username,
+	}
+
+	result := r.db.Create(player)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return player, nil
+}
+
+
+
 // Busca usuário por username
 func (r *PlayerRepository) FindByUsername(username string)(*entities.Player, error){
 	var player entities.Player

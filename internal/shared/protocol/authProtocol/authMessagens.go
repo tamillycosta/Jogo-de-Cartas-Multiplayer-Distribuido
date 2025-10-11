@@ -1,4 +1,4 @@
-package protocol
+package authprotocol
 
 // Representa protocolo de comunicação para autenticação na aplicação (pub/sub) _> cliente -> servidor
 

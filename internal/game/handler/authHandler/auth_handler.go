@@ -6,10 +6,10 @@ import (
     
     "Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
     auth "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
-    "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/protocol"
+    "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/protocol/authProtocol"
 )
 
-// AuthTopicHandler - Handler para tópicos de autenticação
+// Handler para tópicos de autenticação
 type AuthTopicHandler struct {
     authService *auth.AuthService
     broker      *pubsub.Broker
@@ -22,7 +22,7 @@ func New(authService *auth.AuthService, broker *pubsub.Broker) *AuthTopicHandler
     }
 }
 
-// GetTopics - Retorna tópicos que este handler gerencia
+// Retorna tópicos que este handler gerencia
 func (h *AuthTopicHandler) GetTopics() []string {
     return []string{
         "auth.create_account",
@@ -31,7 +31,7 @@ func (h *AuthTopicHandler) GetTopics() []string {
     }
 }
 
-// HandleTopic - Processa mensagens de auth
+// Processa mensagens de auth
 func (h *AuthTopicHandler) HandleTopic(clientID string, topic string, data interface{}) error {
     
     switch topic {
@@ -61,13 +61,13 @@ func (h *AuthTopicHandler) handleCreateAccount(clientID string, data interface{}
     username, _ := dataMap["username"].(string)
    
     
-    log.Printf("📝 Creating account: %s", username)
+    log.Printf("criando conta: %s", username)
     
     // Chama service do servidor
     err := h.authService.CreateAccount(username)
     
     // Monta resposta
-    response := protocol.AuthResponse{
+    response := authprotocol.AuthResponse{
         Type:    "account_created",
         Success: err == nil,
     }
@@ -75,10 +75,9 @@ func (h *AuthTopicHandler) handleCreateAccount(clientID string, data interface{}
     if err != nil {
         response.Error = err.Error()
     } else {
-        response.Message = "Account created successfully"
+        response.Message = "conta criada com sucesso"
     }
     
-    // Publica resposta
     h.publishResponse(clientID, response)
     
     return err

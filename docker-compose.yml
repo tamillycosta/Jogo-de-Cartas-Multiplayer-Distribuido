@@ -1,38 +1,81 @@
 version: "3.9"
 
 services:
-  mysql:
+  mysql-a:
     image: mysql:8.0
+    container_name: mysql-a
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_A}
+      MYSQL_DATABASE: ${DB_NAME_A}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_data_a:/var/lib/mysql
     networks:
       - game-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD_A}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
-  game-server:
-    build: .
-    env_file: .env
+  mysql-b:
+    image: mysql:8.0
+    container_name: mysql-b
     environment:
-      - SERVER_ID=${SERVER_ID}
-      - SERVER_ADDRESS=${SERVER_ADDRESS}
-      - DB_HOST=mysql
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_B}
+      MYSQL_DATABASE: ${DB_NAME_B}
+    volumes:
+      - mysql_data_b:/var/lib/mysql
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD_B}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  server-a:
+    build: .
+    container_name: server-a
+    environment:
+      - SERVER_ID=server-a
+      - SERVER_ADDRESS=server-a
+      - GOSSIP_PORT=7947
+      - DB_HOST=mysql-a
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD_A}
+      - DB_NAME=${DB_NAME_A}
     depends_on:
-      mysql:
+      mysql-a:
         condition: service_healthy
     ports:
-      - "${PORT}:8080"
+      - "8080:8080"
+      - "7947:7947"
+      - "9000:9000/udp"   # UDP broadcast discovery
+    networks:
+      - game-network
+
+  server-b:
+    build: .
+    container_name: server-b
+    environment:
+      - SERVER_ID=server-b
+      - SERVER_ADDRESS=server-b
+      - GOSSIP_PORT=7948
+      - DB_HOST=mysql-b
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD_B}
+      - DB_NAME=${DB_NAME_B}
+    depends_on:
+      mysql-b:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+      - "7948:7948"
+      - "9001:9000/udp"   # UDP broadcast discovery
     networks:
       - game-network
 
@@ -41,4 +84,5 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
+  mysql_data_a:
+  mysql_data_b:

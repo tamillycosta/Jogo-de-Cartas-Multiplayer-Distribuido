@@ -9,10 +9,14 @@ import (
 func SetupRoutes(router *gin.Engine, handler *handlers.Handler){
 	v1 := router.Group("/api/v1")
 	{
-	  v1.GET("/info")
-	  v1.GET("/api/v1/username-available",handler.AuthHandler.UserExists )
+	  // Rota para verificar info do servidor
+		v1.GET("/info", handler.GetServerInfo)
+		
+		// Rotas de autenticação (P2P)
+		v1.GET("/user-exists", handler.AuthHandler.UserExists)
+		v1.POST("/propagate-user", handler.AuthHandler.PropagateUser)
+	}
 	  
 	 
 	}
 	
-}

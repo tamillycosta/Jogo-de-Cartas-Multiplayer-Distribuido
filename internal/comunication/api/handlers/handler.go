@@ -3,33 +3,27 @@ package handlers
 import (
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/authHandler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
-	
+	"net/http"
 
-	
+	"github.com/gin-gonic/gin"
 )
 
-//lida com as rotas HTTP
-// relacionadas à comunicação entre servidores de jogo.
-// atua como uma camada intermediária entre as requisições HTTP
-// e o componente de comunicação (`GameServer`).
-type Handler struct{
-	gameServer *service.GameServer
+// Handler lida com as rotas HTTP relacionadas à comunicação entre servidores
+type Handler struct {
+	gameServer  *service.GameServer
 	AuthHandler *authhandler.Authhandler
 }
 
-
 func New(gameServer *service.GameServer) *Handler {
 	return &Handler{
-		gameServer: gameServer,
+		gameServer:  gameServer,
 		AuthHandler: authhandler.New(gameServer),
 	}
 }
 
-
-
-
-
-// POST /api/v1/notify 
-// Recebe uma notificação de outro servidor no formato JSON,
-
-
+// GET /api/v1/info
+// Retorna informações do servidor atual
+func (h *Handler) GetServerInfo(ctx *gin.Context) {
+	info := h.gameServer.GetCurrentServerInfo()
+	ctx.JSON(http.StatusOK, info)
+}

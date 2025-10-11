@@ -20,13 +20,8 @@ func New(db *gorm.DB)*PlayerRepository{
 
 
 // Cria objeto player no banco 
-func (r *PlayerRepository) Create(username string, ) (*entities.Player, error){
-	player := &entities.Player{
-		ID: uuid.NewString(),
-		Username: username,
-		Score: 0,
-	}
-
+func (r *PlayerRepository) Create( player *entities.Player) (*entities.Player, error){
+	player.ID = uuid.NewString()
 	if err := r.db.Create(player).Error; err != nil {
         return nil, err
     }
@@ -34,19 +29,42 @@ func (r *PlayerRepository) Create(username string, ) (*entities.Player, error){
 }
 
 
-func (r *PlayerRepository) CreateWithID(id, username string) (*entities.Player, error) {
-	player := &entities.Player{
-		ID:       id,
-		Username: username,
-	}
-
+// CreateWithID cria um jogador com ID específico (para sincronização Raft)
+func (r *PlayerRepository) CreateWithID(id string, player *entities.Player) (*entities.Player, error) {
 	result := r.db.Create(player)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	return player, nil
+}	
+
+
+// retorna todos os players (para snapshot)
+func (r *PlayerRepository) GetAll() ([]*entities.Player, error) {
+	var players []*entities.Player
+	result := r.db.Find(&players)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return players, nil
 }
+
+
+// deleta todos os players (para restore snapshot)
+func (r *PlayerRepository)DeleteAll() error {
+	result := r.db.Exec("DELETE FROM players")
+	return  result.Error
+}
+
+
+
+func (r *PlayerRepository) Delete(id string){
+	r.db.Delete(id)
+}
+
+
+
 
 
 
@@ -71,7 +89,7 @@ func (r *PlayerRepository) UsernameExists(username string) bool{
 }
 
 
-// Modifica id do servidor do jogador
+// Modifica id do servidor do jogador (USAR NO LOGIN)
 func (r *PlayerRepository) UpdateServerID(playerID, serverID string) error {
     return r.db.Model(&entities.Player{}).
         Where("id = ?", playerID).

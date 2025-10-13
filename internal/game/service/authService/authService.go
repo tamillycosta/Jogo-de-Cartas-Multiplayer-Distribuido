@@ -2,138 +2,130 @@ package authService
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
-    en "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+
+	raftService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+
+	"github.com/google/uuid"
 )
 
 type AuthService struct {
 	repo         *repository.PlayerRepository
 	apiClient    *client.Client
 	knownServers map[string]*entities.ServerInfo
+	raft         *raftService.RaftService // ← RAFT ADICIONADO!
 }
 
-func New(repo *repository.PlayerRepository, apiClient *client.Client, knownServers map[string]*entities.ServerInfo) *AuthService {
+func New(repo *repository.PlayerRepository,apiClient *client.Client,knownServers map[string]*entities.ServerInfo,raft *raftService.RaftService) *AuthService {
 	return &AuthService{
 		repo:         repo,
 		apiClient:    apiClient,
 		knownServers: knownServers,
+		raft:         raft,
 	}
 }
 
-// Função chamada no pub/sub para criar conta
+
+// ----------------  MÉTODO CHAMADO PELO PUB/SUB ----------------- 
+
+
+// Chamado quando cliente WebSocket solicita criar conta
 func (as *AuthService) CreateAccount(username string) error {
+	log.Printf("[AuthService] Recebida solicitação de criação: %s", username)
+
 	if len(username) == 0 {
 		return errors.New("username não pode ser vazio")
 	}
 
-	//  Verifica localmente primeiro
+
+	// Verifica se já existe localmente 
 	if as.UserExists(username) {
-		return errors.New("este username já existe localmente")
+		log.Printf("[AuthService] Username '%s' já existe localmente", username)
+		return errors.New("este username já existe")
 	}
 
-	//  Verifica globalmente em outros servidores
-	if len(as.knownServers) > 0 {
-		existsGlobally, serverID := as.checkUsernameGlobal(username)
-		if existsGlobally {
-			// Username existe em outro servidor, sincroniza localmente
-			log.Printf("Username '%s' já existe no servidor %s, sincronizando localmente", username, serverID)
-			_, err := as.repo.Create(username)
-			if err != nil {
-				return fmt.Errorf("erro ao sincronizar usuário: %w", err)
-			}
-			return errors.New("este username já existe em outro servidor")
+	// Verifica se este servidor é o lider , se não for busca o endereço do lider do cluster
+	if !as.raft.IsLeader() {
+		leaderAddr := as.raft.GetLeaderHTTPAddr()
+		log.Printf("[AuthService] Não sou líder! Líder atual: %s", leaderAddr)
+		
+		if leaderAddr == "" {
+			return errors.New("nenhum líder disponível no momento, tente novamente")
 		}
+		
+		return fmt.Errorf("não sou o líder. Conecte-se ao líder: %s", leaderAddr)
 	}
 
-	//  Username disponível, cria localmente
-	player, err := as.repo.Create(username)
+	
+	log.Printf("[AuthService] Sou líder! Processando comando via Raft...")
+
+	userID := uuid.New().String()
+
+	cmdData := comands.CreateUserCommand{
+		UserID:   userID,
+		Username: username,
+	}
+
+	data, err := json.Marshal(cmdData)
 	if err != nil {
-		return fmt.Errorf("erro ao criar usuário: %w", err)
+		return fmt.Errorf("erro ao serializar comando: %v", err)
 	}
 
-	log.Printf("Usuário '%s' criado localmente com ID: %s", username, player.ID)
+	cmd := comands.Command{
+		Type:      comands.CommandCreateUser,
+		Data:      data,
+		RequestID: uuid.New().String(),
+	}
 
-	// Propaga para outros servidores
-	as.propagateUserToServers(player)
+	
+	
+	// Aplica comando via Raft (será replicado para todos os servidores segidores)
+	response, err := as.raft.ApplyCommand(cmd)
+	if err != nil {
+		log.Printf("[AuthService] Erro ao aplicar comando no Raft: %v", err)
+		return fmt.Errorf("erro ao processar comando: %v", err)
+	}
 
+	if !response.Success {
+		log.Printf("[AuthService] Comando rejeitado: %s", response.Error)
+		return fmt.Errorf("falha ao criar usuário: %s", response.Error)
+	}
+
+	log.Printf("[AuthService] Usuário '%s' criado e replicado no cluster via Raft!", username)
 	return nil
 }
 
 
-// Verifica se username existe globalmente
-// Retorna (existe, serverID)
-func (as *AuthService) checkUsernameGlobal(username string) (bool, string) {
-	for serverID, server := range as.knownServers {
-		exists, err := as.apiClient.AuthInterface.CheckUsernameExists(
-			server.Address,
-			server.Port,
-			username,
-		)
-
-		if err != nil {
-			log.Printf("⚠️ Erro ao verificar username no servidor %s: %v", serverID, err)
-			continue // Ignora servers offline
-		}
-
-		if exists {
-			return true, serverID
-		}
-	}
-	return false, ""
-}
+// ----------------- AUXILIARES --------------------
 
 
-// Propaga usuário criado para outros servidores
-func (as *AuthService) propagateUserToServers(player *en.Player ) {
-	successCount := 0
-	failCount := 0
-
-	for serverID, server := range as.knownServers {
-		err := as.apiClient.AuthInterface.PropagateUser(
-			server.Address,
-			server.Port,
-			player.ID,
-			player.Username,
-		)
-
-		if err != nil {
-			log.Printf("Falha ao propagar usuário '%s' para servidor %s: %v", player.Username, serverID, err)
-			failCount++
-		} else {
-			log.Printf("Usuário '%s' propagado para servidor %s", player.Username, serverID)
-			successCount++
-		}
-	}
-
-	log.Printf("Propagação concluída: %d sucessos, %d falhas", successCount, failCount)
-}
-
-
-// Verifica se username existe localmente
+// Verifica se username existe localmente (NÃO usa Raft, apenas leitura)
 func (as *AuthService) UserExists(username string) bool {
 	return as.repo.UsernameExists(username)
 }
 
-
-// Recebe propagação de outro servidor (chamado pela API)
-func (as *AuthService) ReceiveUserPropagation(userID, username string) error {
-	// Verifica se já existe localmente
-	if as.UserExists(username) {
-		log.Printf("Usuário '%s' já existe localmente, ignorando propagação", username)
-		return nil
+//  Retorna informações do líder atual
+func (as *AuthService) GetLeaderInfo() map[string]interface{} {
+	return map[string]interface{}{
+		"is_leader":   as.raft.IsLeader(),
+		"leader_id":   as.raft.GetLeaderID(),
+		"leader_addr": as.raft.GetLeaderHTTPAddr(),
 	}
+}
 
-	// Cria usuário localmente (sincronização)
-	_, err := as.repo.CreateWithID(userID, username)
-	if err != nil {
-		return fmt.Errorf("erro ao criar usuário propagado: %w", err)
-	}
 
-	log.Printf("Usuário '%s' (ID: %s) sincronizado via propagação", username, userID)
-	return nil
+
+// ----------------- MÉTODOS DA API REST (P2P) -------------------
+
+
+// Chamado pela API quando outro servidor verifica username
+func (as *AuthService) CheckUsernameLocal(username string) bool {
+	return as.UserExists(username)
 }

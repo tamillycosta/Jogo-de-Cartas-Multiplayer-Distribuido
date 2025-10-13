@@ -8,12 +8,12 @@ import (
 	"net/url"
 )
 
-type AuthInterface struct {
+type AuthClientInterface struct {
 	httpClient http.Client
 }
 
-func New(client http.Client) *AuthInterface {
-	return &AuthInterface{
+func New(client http.Client) *AuthClientInterface{
+	return & AuthClientInterface{
 		httpClient: client,
 	}
 }
@@ -21,7 +21,7 @@ func New(client http.Client) *AuthInterface {
 // GET /api/v1/user-exists?username=xyz
 // Verifica se o username existe em outro servidor
 // Retorna true se existe, false se disponível
-func (a *AuthInterface) CheckUsernameExists(serverAddress string, port int, username string) (bool, error) {
+func (a *AuthClientInterface) CheckUsernameExists(serverAddress string, port int, username string) (bool, error) {
 	escapedUsername := url.QueryEscape(username)
 	url := fmt.Sprintf("http://%s:%d/api/v1/user-exists?username=%s", serverAddress, port, escapedUsername)
 
@@ -49,7 +49,7 @@ func (a *AuthInterface) CheckUsernameExists(serverAddress string, port int, user
 
 // POST /api/v1/propagate-user
 // Propaga criação de usuário para outro servidor
-func (a *AuthInterface) PropagateUser(serverAddress string, port int, userID, username string) error {
+func (a *AuthClientInterface) PropagateUser(serverAddress string, port int, userID, username string) error {
 	url := fmt.Sprintf("http://%s:%d/api/v1/propagate-user", serverAddress, port)
 
 	payload := map[string]string{

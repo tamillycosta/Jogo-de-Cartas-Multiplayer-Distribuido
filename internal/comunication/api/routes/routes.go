@@ -2,21 +2,43 @@ package routes
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers"
+	
 	"github.com/gin-gonic/gin"
 )
-
-// Rotas da aplicação
-func SetupRoutes(router *gin.Engine, handler *handlers.Handler){
-	v1 := router.Group("/api/v1")
-	{
-	  // Rota para verificar info do servidor
-		v1.GET("/info", handler.GetServerInfo)
+	
+	func SetupRoutes(router *gin.Engine, handler *handlers.Handler) {
+		v1 := router.Group("/api/v1")
+		{
+			
+			// ------------------ Informações do Servidor -----------------
+			
+			v1.GET("/info", handler.GetServerInfo)
+			
+			// ------------------ Autenticação (P2P via HTTP) ------------------
+			
+			auth := v1.Group("/auth")
+			{
+				auth.GET("/user-exists", handler.AuthHandler.UserExists)
+			}
 		
-		// Rotas de autenticação (P2P)
-		v1.GET("/user-exists", handler.AuthHandler.UserExists)
-		v1.POST("/propagate-user", handler.AuthHandler.PropagateUser)
-	}
-	  
-	 
+			
+			// Raft ------------------- Gerenciamento do Cluster ------------------
+			
+			raft := v1.Group("/raft")
+			{
+				// Status e gerenciamento
+				raft.GET("/status", handler.RaftHandler.GetStatus)
+				raft.POST("/join", handler.RaftHandler.Join)
+				raft.DELETE("/remove/:server_id", handler.RaftHandler.Remove)
+				
+				
+				// -------------------- RPCs Internos do Raft -------------------
+				// Chamados automaticamente por outros servidores
+				
+				raft.POST("/append-entries",handler.RaftHandler.AppendEntries)
+				raft.POST("/request-vote", handler.RaftHandler.RequestVote)
+				raft.POST("/install-snapshot", handler.RaftHandler.InstallSnapshot)
+			}
+		}
 	}
 	

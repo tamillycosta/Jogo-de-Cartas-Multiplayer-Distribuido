@@ -5,7 +5,6 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/util"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -21,10 +20,9 @@ type Discovery struct {
 	memberlist   *memberlist.Memberlist
 }
 
-
-func SetUpDiscovery(myInfo *entities.ServerInfo) (*Discovery, error){
+func SetUpDiscovery(myInfo *entities.ServerInfo) (*Discovery, error) {
 	gossipPort := util.GetPortFromEnv("GOSSIP_PORT", 7947)
-	return  New(myInfo, gossipPort)
+	return New(myInfo, gossipPort)
 }
 
 func New(myInfo *entities.ServerInfo, bindPort int) (*Discovery, error) {
@@ -33,8 +31,14 @@ func New(myInfo *entities.ServerInfo, bindPort int) (*Discovery, error) {
 		KnownServers: make(map[string]*entities.ServerInfo),
 	}
 
+	// Configura memberlist
 	config := memberlist.DefaultLocalConfig()
-	setMemberlistConfig(*myInfo, bindPort, config)
+	config.Name = myInfo.ID
+	config.BindPort = bindPort
+	config.AdvertisePort = bindPort
+	
+	// IMPORTANTE: Liga logs para debug
+	config.LogOutput = log.Writer()
 
 	metadata, err := json.Marshal(myInfo)
 	if err != nil {
@@ -51,22 +55,22 @@ func New(myInfo *entities.ServerInfo, bindPort int) (*Discovery, error) {
 
 	d.memberlist = list
 
-	fmt.Printf("[Discovery] Memberlist iniciado: %s na porta %d\n", myInfo.ID, bindPort)
+	log.Printf("[Discovery] Servidor %s iniciado na porta %d (gossip)", myInfo.ID, bindPort)
+	log.Printf("[Discovery] Aguardando broadcasts na porta 9000...")
 
-	// 🔥 inicia descoberta automática (sem seeds)
+	// Inicia descoberta automática
 	go d.startAutoDiscovery(bindPort)
 
 	return d, nil
 }
-
 func (d *Discovery) startAutoDiscovery(gossipPort int) {
 	const broadcastPort = 9000
 
-	// cache pra evitar flood
-	lastSeen := make(map[string]time.Time)
-	const floodDelay = 10 * time.Second
+	// conjunto para rastrear servidores já processados
+	discoveredServers := make(map[string]bool)
+	var discMu sync.Mutex
 
-	// 1️⃣ goroutine para escutar broadcasts
+	// goroutine para escutar broadcasts
 	go func() {
 		addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf(":%d", broadcastPort))
 		conn, err := net.ListenUDP("udp4", addr)
@@ -88,32 +92,31 @@ func (d *Discovery) startAutoDiscovery(gossipPort int) {
 				continue
 			}
 
+			// ignora o próprio servidor
 			if msg.ID == d.MyInfo.ID {
-				continue // ignora a si mesmo
-			}
-
-			key := fmt.Sprintf("%s-%s", msg.ID, remoteAddr.IP.String())
-
-			d.mu.Lock()
-			// evita flood: se já vimos há pouco tempo, ignora
-			if t, ok := lastSeen[key]; ok && time.Since(t) < floodDelay {
-				d.mu.Unlock()
 				continue
 			}
-			lastSeen[key] = time.Now()
 
-			if _, ok := d.KnownServers[msg.ID]; !ok {
-				addr := fmt.Sprintf("%s:%d", remoteAddr.IP.String(), gossipPort)
-				if _, err := d.memberlist.Join([]string{addr}); err == nil {
-					d.KnownServers[msg.ID] = &msg
-					log.Printf("[Discovery] 📡 Detectado servidor %s em %s", msg.ID, addr)
-				}
+			// verifica se já foi processado (independente do Join ter dado certo)
+			discMu.Lock()
+			if discoveredServers[msg.ID] {
+				discMu.Unlock()
+				continue
 			}
-			d.mu.Unlock()
-		}
+			discoveredServers[msg.ID] = true
+			discMu.Unlock()
+
+			// tenta conectar
+			addr := fmt.Sprintf("%s:%d", remoteAddr.IP.String(), gossipPort)
+			
+				log.Printf("[Discovery] Novo servidor detectado: %s em %s", msg.ID, addr)
+		
+				d.KnownServers[msg.ID] = &msg
+			}
+		
 	}()
 
-	// 2️⃣ goroutine para enviar broadcasts
+	// 2goroutine para enviar broadcasts
 	go func() {
 		conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{
 			IP:   net.ParseIP("255.255.255.255"),
@@ -127,7 +130,7 @@ func (d *Discovery) startAutoDiscovery(gossipPort int) {
 
 		data, _ := json.Marshal(d.MyInfo)
 		for {
-			conn.Write(data)
+			_, _ = conn.Write(data)
 			time.Sleep(3 * time.Second)
 		}
 	}()
@@ -135,9 +138,20 @@ func (d *Discovery) startAutoDiscovery(gossipPort int) {
 
 
 
-func setMemberlistConfig(myInfo entities.ServerInfo, bindPort int, config *memberlist.Config) {
-	config.Logger = log.New(io.Discard, "", 0)
-	config.Name = myInfo.ID
-	config.BindPort = bindPort
-	config.AdvertisePort = bindPort
+func (d *Discovery) GetKnownServers() map[string]*entities.ServerInfo {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Cria cópia para evitar race conditions
+	servers := make(map[string]*entities.ServerInfo)
+	for k, v := range d.KnownServers {
+		servers[k] = v
+	}
+	return servers
 }
+
+
+func (d *Discovery) GetMemberlistNodes() []*memberlist.Node {
+	return d.memberlist.Members()
+}
+

@@ -3,9 +3,11 @@ package service
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	aS "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
+
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"sync"
 	"time"
 )
@@ -19,6 +21,7 @@ type GameServer struct {
 	StartTime time.Time
 	Auth      *aS.AuthService
 	Discovery *discovery.Discovery
+	Raft	  *raft.RaftService
 	ApiClient *client.Client
 }
 
@@ -39,6 +42,13 @@ func (gs *GameServer) InitAuth(authService *aS.AuthService) {
 	defer gs.Mu.Unlock()
 	gs.Auth = authService
 }
+
+func (gs *GameServer) InitRaft(raftService *raft.RaftService){
+	gs.Mu.Lock()
+	defer  gs.Mu.Unlock()
+	gs.Raft = raftService
+}
+
 
 func (gs *GameServer) GetCurrentServerInfo() *entities.ServerInfo {
 	gs.Mu.RLock()

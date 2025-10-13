@@ -12,7 +12,9 @@ type ServerInfo struct {
 	Address  string    `json:"address"`
 	Port     int       `json:"port"`
 	Load     float64   `json:"current_load"`
-	//Players  int       `json:"active_players"`
+	Players  int       `json:"active_players"`
+	GossipPort int    `json:"gossip_port"` 
+	IsLeader bool	`json:"leader"`
 	Status   string    `json:"status"`
 	
 }

@@ -30,7 +30,7 @@ func (r *PlayerRepository) Create( player *entities.Player) (*entities.Player, e
 
 
 // CreateWithID cria um jogador com ID específico (para sincronização Raft)
-func (r *PlayerRepository) CreateWithID(id string, player *entities.Player) (*entities.Player, error) {
+func (r *PlayerRepository) CreateWithID( player *entities.Player) (*entities.Player, error) {
 	result := r.db.Create(player)
 	if result.Error != nil {
 		return nil, result.Error

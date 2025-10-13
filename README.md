@@ -17,21 +17,20 @@
 
 2. Adicione config do ambiente virtual
    Ex .env:
-      ```bash
-        SERVER_ID=server-a
-        SERVER_ADDRESS=server-a
-        GOSSIP_PORT=7947
-        PORT=8080
-        SEED_SERVERS=
-        
-        DB_HOST=mysql-a
-        DB_PORT=3306
-        DB_USER=root
+      ```bash  
         DB_PASSWORD=senha_a
         DB_NAME=game_server_a
-        DB_SSLMODE=disable
-
+       
 3. Suba o container do servidor:
+
+
+
+4. Para subir cada servidores separadamente use:   
    ```bash
-     docker-compose up --build
+     docker-compose up --build server-a
+
+  
+5.Para subir todos os servidores :   
+   ```bash
+     docker-compose up --build 
    

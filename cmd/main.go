@@ -19,12 +19,13 @@ func main() {
 	
 	handler := handlers.New(gameServer)
 	router.StaticFile("/test", "./web/client.html") 
+
 	// 2. Inicializa API de comunicação
 	api.SetUpApi(router,serverInfo, handler)
 
 	log.Printf("🎮 Server %s running on %d", serverInfo.ID, serverInfo.Port)
-    log.Printf("📡 WebSocket: ws://localhost%d/ws", serverInfo.Port)
-    log.Printf("🌐 REST API: http://localhost%d/api/v1", serverInfo.Port)
+    log.Printf("📡 WebSocket: ws://localhost:%d/ws", serverInfo.Port)
+    log.Printf("🌐 REST API: http://localhost:%d/api/v1", serverInfo.Port)
     log.Println("✅ Server ready!")
 
 	// SET DA APLICAÇÃO 

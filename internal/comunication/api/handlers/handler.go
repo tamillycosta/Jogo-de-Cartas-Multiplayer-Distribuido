@@ -2,6 +2,7 @@ package handlers
 
 import (
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/authHandler"
+	rafthandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/raft_handler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
 	"net/http"
 
@@ -12,12 +13,14 @@ import (
 type Handler struct {
 	gameServer  *service.GameServer
 	AuthHandler *authhandler.Authhandler
+	RaftHandler *rafthandler.RaftHandler
 }
 
 func New(gameServer *service.GameServer) *Handler {
 	return &Handler{
 		gameServer:  gameServer,
 		AuthHandler: authhandler.New(gameServer),
+		RaftHandler: rafthandler.New(gameServer.Raft),
 	}
 }
 

@@ -38,29 +38,3 @@ func (ah *Authhandler) UserExists(ctx *gin.Context) {
 }
 
 
-// POST /api/v1/propagate-user
-// Recebe propagação de usuário de outro servidor
-// Body: {"user_id": "uuid", "username": "nome"}
-func (ah *Authhandler) PropagateUser(ctx *gin.Context) {
-	var payload struct {
-		UserID   string `json:"user_id" binding:"required"`
-		Username string `json:"username" binding:"required"`
-	}
-
-	if err := ctx.ShouldBindJSON(&payload); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload", "details": err.Error()})
-		return
-	}
-
-	err := ah.gameServer.Auth.ReceiveUserPropagation(payload.UserID, payload.Username)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "user propagated successfully",
-		"user_id": payload.UserID,
-		"username": payload.Username,
-	})
-}

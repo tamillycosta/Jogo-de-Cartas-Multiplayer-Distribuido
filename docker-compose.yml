@@ -1,83 +1,156 @@
 version: "3.9"
 
 services:
+  # ========================================
+  # MYSQL - Server A
+  # ========================================
   mysql-a:
     image: mysql:8.0
     container_name: mysql-a
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_A}
-      MYSQL_DATABASE: ${DB_NAME_A}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_A:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME_A:-gamedb}
     volumes:
       - mysql_data_a:/var/lib/mysql
     networks:
       - game-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD_A}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # ========================================
+  # MYSQL - Server B
+  # ========================================
   mysql-b:
     image: mysql:8.0
     container_name: mysql-b
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_B}
-      MYSQL_DATABASE: ${DB_NAME_B}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_B:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME_B:-gamedb}
     volumes:
       - mysql_data_b:/var/lib/mysql
     networks:
       - game-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD_B}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # ========================================
+  # MYSQL - Server C
+  # ========================================
+  mysql-c:
+    image: mysql:8.0
+    container_name: mysql-c
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_C:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME_C:-gamedb}
+    volumes:
+      - mysql_data_c:/var/lib/mysql
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ========================================
+  # Server A - Líder (Bootstrap)
+  # ========================================
   server-a:
     build: .
     container_name: server-a
     environment:
       - SERVER_ID=server-a
       - SERVER_ADDRESS=server-a
+      - PORT=8080
       - GOSSIP_PORT=7947
+      - RAFT_BOOTSTRAP=true
       - DB_HOST=mysql-a
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=${DB_PASSWORD_A}
-      - DB_NAME=${DB_NAME_A}
+      - DB_PASSWORD=${DB_PASSWORD_A:-rootpass}
+      - DB_NAME=${DB_NAME_A:-gamedb}
+    volumes:
+      #  Cada servidor tem seu próprio diretório de dados Raft
+      - ./data/server-a:/app/data
     depends_on:
       mysql-a:
         condition: service_healthy
     ports:
-      - "8080:8080"
-      - "7947:7947"
-      - "9000:9000/udp"   # UDP broadcast discovery
+      - "8080:8080"      # HTTP/WebSocket
+      - "7947:7947/udp"  # Gossip (n esta sundo usado)
+      - "9000:9000/udp"  # Broadcast discovery
     networks:
       - game-network
+    restart: unless-stopped
 
+  # ========================================
+  # Server B - Follower
+  # ========================================
   server-b:
     build: .
     container_name: server-b
     environment:
       - SERVER_ID=server-b
       - SERVER_ADDRESS=server-b
-      - GOSSIP_PORT=7948
+      - PORT=8080
+      - GOSSIP_PORT=7947 
+      - RAFT_BOOTSTRAP=false 
       - DB_HOST=mysql-b
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=${DB_PASSWORD_B}
-      - DB_NAME=${DB_NAME_B}
+      - DB_PASSWORD=${DB_PASSWORD_B:-rootpass}
+      - DB_NAME=${DB_NAME_B:-gamedb}
+    volumes:
+      - ./data/server-b:/app/data
     depends_on:
       mysql-b:
         condition: service_healthy
     ports:
-      - "8081:8080"
-      - "7948:7948"
-      - "9001:9000/udp"   # UDP broadcast discovery
+      - "8081:8080"      
+      - "7948:7947/udp" 
+      - "9001:9000/udp"  
     networks:
       - game-network
+    restart: unless-stopped
+
+  # ========================================
+  # Server C - Follower
+  # ========================================
+  server-c:
+    build: .
+    container_name: server-c
+    environment:
+      - SERVER_ID=server-c
+      - SERVER_ADDRESS=server-c
+      - PORT=8080
+      - GOSSIP_PORT=7947
+      - RAFT_BOOTSTRAP=false
+      - DB_HOST=mysql-c
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD_C:-rootpass}
+      - DB_NAME=${DB_NAME_C:-gamedb}
+    volumes:
+      - ./data/server-c:/app/data
+    depends_on:
+      mysql-c:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+      - "7949:7947/udp"
+      - "9002:9000/udp"
+    networks:
+      - game-network
+    restart: unless-stopped
 
 networks:
   game-network:
@@ -86,3 +159,4 @@ networks:
 volumes:
   mysql_data_a:
   mysql_data_b:
+  mysql_data_c:

@@ -1,72 +1,75 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Teste WebSocket Pub/Sub</title>
-  <style>
-    body { font-family: Arial; padding: 1rem; }
-    input, button { margin: .5rem 0; }
-    #log { white-space: pre-wrap; background: #eee; padding: 1rem; height: 200px; overflow-y: auto; }
-  </style>
+  <title>Test WebSocket</title>
 </head>
 <body>
-  <h2>Teste de Conexão WebSocket</h2>
-
-  <button id="connectBtn">Conectar</button>
-  <button id="disconnectBtn">Desconectar</button>
-  <br />
-
-  <input id="topicInput" placeholder="tópico (ex: jogo.cartas)" />
-  <button id="subscribeBtn">Inscrever</button>
-  <button id="unsubscribeBtn">Desinscrever</button>
-  <br />
-
-  <textarea id="dataInput" rows="3" cols="40" placeholder='mensagem JSON (ex: {"carta":"A"})'></textarea>
-  <br />
-  <button id="publishBtn">Publicar</button>
-
-  <h3>Log:</h3>
+  <h1>WebSocket Test</h1>
+  <button id="createBtn">Criar Conta</button>
   <div id="log"></div>
 
   <script>
     let socket;
+    let clientID;
     const logDiv = document.getElementById('log');
 
-    function log(msg) {
-      logDiv.textContent += msg + "\n";
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
+    //  CONECTAR
+    socket = new WebSocket('ws://localhost:8080/ws');
 
-    document.getElementById('connectBtn').onclick = () => {
-      socket = new WebSocket("ws://localhost:8080/ws");
-
-      socket.onopen = () => log("Conectado ao servidor WebSocket");
-      socket.onclose = () => log("Conexão fechada");
-      socket.onerror = (e) => log("Erro: " + e.message);
-      socket.onmessage = (msg) => log("📩 Recebido: " + msg.data);
+    //  ESPERAR CONEXÃO ABRIR
+    socket.onopen = () => {
+      console.log(' Conectado!');
+      logDiv.innerHTML += '<p> Conectado!</p>';
     };
 
-    document.getElementById('disconnectBtn').onclick = () => {
-      if (socket) socket.close();
+    //  RECEBER MENSAGENS
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Recebido:', data);
+      logDiv.innerHTML += `<p> ${JSON.stringify(data)}</p>`;
+
+      // Salvar client ID
+      if (data.type === 'connected') {
+        clientID = data.client_id;
+        console.log(' Client ID:', clientID);
+        
+        // Auto-subscribe no tópico de resposta
+        socket.send(JSON.stringify({
+          type: 'subscribe',
+          topic: `auth.response.${clientID}`
+        }));
+      }
     };
 
-    document.getElementById('subscribeBtn').onclick = () => {
-      const topic = document.getElementById('topicInput').value;
-      socket.send(JSON.stringify({ type: "subscribe", topic }));
-      log("🟢 Solicitado subscribe em: " + topic);
+    socket.onerror = (e) => {
+      console.error(' Erro:', e);
+      logDiv.innerHTML += '<p> Erro na conexão</p>';
     };
 
-    document.getElementById('unsubscribeBtn').onclick = () => {
-      const topic = document.getElementById('topicInput').value;
-      socket.send(JSON.stringify({ type: "unsubscribe", topic }));
-      log("🔴 Solicitado unsubscribe em: " + topic);
+    socket.onclose = () => {
+      console.log(' Desconectado');
+      logDiv.innerHTML += '<p>🔌 Desconectado</p>';
     };
 
-    document.getElementById('publishBtn').onclick = () => {
-      const topic = document.getElementById('topicInput').value;
-      const data = JSON.parse(document.getElementById('dataInput').value || "{}");
-      socket.send(JSON.stringify({ type: "publish", topic, data }));
-      log("📤 Publicado em " + topic + ": " + JSON.stringify(data));
+    // ENVIAR MENSAGEM (só depois de conectar!)
+    document.getElementById('createBtn').onclick = () => {
+      // Verifica se está conectado
+      if (socket.readyState !== WebSocket.OPEN) {
+        alert(' WebSocket não está conectado!');
+        return;
+      }
+
+      // Envia a mensagem
+      socket.send(JSON.stringify({
+        type: 'publish',
+        topic: 'auth.create_account',
+        data: { username: 'joao123',
+               
+         }
+      }));
+
+      console.log('Enviado: criar conta');
+      logDiv.innerHTML += '<p>Criando conta para joao...</p>';
     };
   </script>
 </body>

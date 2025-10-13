@@ -11,3 +11,8 @@
 # cache de dependências
 go.work
 go.work.sum
+
+*.sh
+
+# raft logstore
+data/

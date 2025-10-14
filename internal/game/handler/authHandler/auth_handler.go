@@ -32,9 +32,9 @@ func (h *AuthTopicHandler) HandleTopic(clientID string, topic string, data inter
 	case "auth.create_account":
 		return h.handleCreateAccount(clientID, data)
 
-	// TODO: Implementar
-	//case "auth.login":
-	//	return h.handleLogin(clientID, data)
+	
+	case "auth.login":
+		return h.handleLogin(clientID, data)
 
 	//case "auth.logout":
 	//	return h.handleLogout(clientID, data)
@@ -43,6 +43,7 @@ func (h *AuthTopicHandler) HandleTopic(clientID string, topic string, data inter
 		return fmt.Errorf("topico n encontrado: %s", topic)
 	}
 }
+
 
 // Handler para criação de conta
 func (h *AuthTopicHandler) handleCreateAccount(clientID string, data interface{}) error {
@@ -79,6 +80,45 @@ func (h *AuthTopicHandler) handleCreateAccount(clientID string, data interface{}
 	}
 
 	
+	h.publishResponse(clientID, response)
+
+	return err
+}
+
+
+// Handler para login de conta
+func (h *AuthTopicHandler) handleLogin(clientID string, data interface{}) error {
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		h.publishErrorResponse(clientID, "formato de dados inválido")
+		return fmt.Errorf("invalid data format")
+	}
+
+	username, ok := dataMap["username"].(string)
+	if !ok || username == "" {
+		h.publishErrorResponse(clientID, "username não fornecido")
+		return fmt.Errorf("username not provided")
+	}
+
+	log.Printf("[AuthHandler] Cliente %s quer fazer login: %s", clientID, username)
+
+	// Chama AuthService
+	player, err := h.authService.Login(username)
+
+	response := authprotocol.AuthResponse{
+		Type:    "login_response",
+		Success: err == nil,
+	}
+
+	if err != nil {
+		response.Error = err.Error()
+		log.Printf("[AuthHandler] Erro no login de '%s': %v", username, err)
+	} else {
+		response.Message = fmt.Sprintf("Login de '%s' bem-sucedido!", username)
+		response.Player = player
+		log.Printf("[AuthHandler] Login de '%s' bem-sucedido!", username)
+	}
+
 	h.publishResponse(clientID, response)
 
 	return err

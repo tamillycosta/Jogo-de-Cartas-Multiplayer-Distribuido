@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"log"
 
+	gameEntities "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
+
 	"github.com/google/uuid"
 )
 
@@ -102,6 +104,24 @@ func (as *AuthService) CreateAccount(username string) error {
 	return nil
 }
 
+// 
+func (as *AuthService) Login(username string) (*gameEntities.Player, error) {
+    log.Printf("[AuthService] Tentativa de login para: %s", username)
+
+    player, err := as.repo.FindByUsername(username)
+    if err != nil {
+        log.Printf("[AuthService] Erro ao buscar usuário '%s': %v", username, err)
+        return nil, errors.New("erro interno ao tentar fazer login")
+    }
+
+    if player == nil {
+        log.Printf("[AuthService] Usuário '%s' não encontrado", username)
+        return nil, errors.New("usuário não encontrado")
+    }
+
+    log.Printf("[AuthService] Usuário '%s' autenticado com sucesso", username)
+    return player, nil
+}
 
 // ----------------- AUXILIARES --------------------
 

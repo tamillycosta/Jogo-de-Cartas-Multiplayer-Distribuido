@@ -6,7 +6,7 @@
 <body>
   <h1>WebSocket Test</h1>
   <button id="createBtn">Criar Conta</button>
-  <div id="log"></div>
+  <button id="loginBtn">Login</button> <div id="log"></div>
 
   <script>
     let socket;
@@ -63,14 +63,31 @@
       socket.send(JSON.stringify({
         type: 'publish',
         topic: 'auth.create_account',
-        data: { username: 'joao123',
-               
-         }
+        data: { username: 'joao123' } // Removi uma vírgula extra aqui
       }));
 
       console.log('Enviado: criar conta');
       logDiv.innerHTML += '<p>Criando conta para joao...</p>';
     };
+
+     document.getElementById('loginBtn').onclick = () => {
+      // Verifica se está conectado
+      if (socket.readyState !== WebSocket.OPEN) {
+        alert(' WebSocket não está conectado!');
+        return;
+      }
+
+      // Envia a mensagem
+      socket.send(JSON.stringify({
+        type: 'publish',
+        topic: 'auth.login',
+        data: { username: 'joao123' }
+      }));
+
+      console.log('Enviado: login');
+      logDiv.innerHTML += '<p>Fazendo login para joao...</p>';
+    };
+    
   </script>
 </body>
 </html>

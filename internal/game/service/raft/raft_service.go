@@ -179,6 +179,10 @@ func (rs *RaftService) GetLeaderID() string {
 	return string(id)
 }
 
+func (rs *RaftService) GetMyID() string {
+	return rs.config.ServerID
+}
+
 // aguarda eleição
 func (rs *RaftService) WaitForLeader(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)

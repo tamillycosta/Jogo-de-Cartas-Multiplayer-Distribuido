@@ -47,6 +47,34 @@ func (a *AuthClientInterface) CheckUsernameExists(serverAddress string, port int
 	return result.Exists, nil
 }
 
+
+// CheckPlayerLoggedIn verifica se um jogador está logado em outro servidor.
+// GET /api/v1/auth/is-player-logged-in?username=xyz
+func (a *AuthClientInterface) CheckPlayerLoggedIn(serverAddress string, port int, username string) (bool, error) {
+	escapedUsername := url.QueryEscape(username)
+	url := fmt.Sprintf("http://%s:%d/api/v1/auth/is-player-logged-in?username=%s", serverAddress, port, escapedUsername)
+
+	resp, err := a.httpClient.Get(url)
+	if err != nil {
+		return false, fmt.Errorf("falha ao requisitar a verificação de login: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("servidor retornou o status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		IsLoggedIn bool `json:"is_logged_in"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, fmt.Errorf("falha ao descodificar a resposta: %w", err)
+	}
+
+	return result.IsLoggedIn, nil
+}
+
 // POST /api/v1/propagate-user
 // Propaga criação de usuário para outro servidor
 func (a *AuthClientInterface) PropagateUser(serverAddress string, port int, userID, username string) error {

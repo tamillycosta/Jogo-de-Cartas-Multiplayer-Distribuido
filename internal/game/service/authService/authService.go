@@ -14,6 +14,7 @@ import (
 	"log"
 
 	gameEntities "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 
 	"github.com/google/uuid"
 )
@@ -23,14 +24,16 @@ type AuthService struct {
 	apiClient    *client.Client
 	knownServers map[string]*entities.ServerInfo
 	raft         *raftService.RaftService // ← RAFT ADICIONADO!
+	sessionManager *session.SessionManager
 }
 
-func New(repo *repository.PlayerRepository,apiClient *client.Client,knownServers map[string]*entities.ServerInfo,raft *raftService.RaftService) *AuthService {
+func New(repo *repository.PlayerRepository,apiClient *client.Client,knownServers map[string]*entities.ServerInfo,raft *raftService.RaftService, sm *session.SessionManager) *AuthService {
 	return &AuthService{
 		repo:         repo,
 		apiClient:    apiClient,
 		knownServers: knownServers,
 		raft:         raft,
+		sessionManager: sm,
 	}
 }
 
@@ -104,24 +107,64 @@ func (as *AuthService) CreateAccount(username string) error {
 	return nil
 }
 
-// 
-func (as *AuthService) Login(username string) (*gameEntities.Player, error) {
-    log.Printf("[AuthService] Tentativa de login para: %s", username)
+// Login autentica um usuário, verifica se ele já está logado em outro servidor
+// no cluster, e cria uma sessão em memória.
+func (as *AuthService) Login(username string, clientID string) (*gameEntities.Player, error) {
+	log.Printf("[AuthService] Tentativa de login para: %s (ClientID: %s)", username, clientID)
 
-    player, err := as.repo.FindByUsername(username)
-    if err != nil {
-        log.Printf("[AuthService] Erro ao buscar usuário '%s': %v", username, err)
-        return nil, errors.New("erro interno ao tentar fazer login")
-    }
+	// PASSO 1: Verificar se o jogador já está logado em outro servidor do cluster
+	for serverID, serverInfo := range as.knownServers {
+		// Não precisa de verificar no próprio servidor, pois isso será feito localmente a seguir
+		if serverID == as.raft.GetMyID() {
+			continue
+		}
 
-    if player == nil {
-        log.Printf("[AuthService] Usuário '%s' não encontrado", username)
-        return nil, errors.New("usuário não encontrado")
-    }
+		log.Printf("[AuthService] Verificando sessão de '%s' no servidor %s...", username, serverID)
+		isLoggedIn, err := as.apiClient.AuthInterface.CheckPlayerLoggedIn(serverInfo.Address, serverInfo.Port, username)
+		if err != nil {
+			// Se houver um erro, pode ser que o servidor esteja temporariamente offline.
+			// É mais seguro continuar a verificação nos outros.
+			log.Printf("⚠️  Erro ao verificar sessão no servidor %s: %v", serverID, err)
+			continue
+		}
 
-    log.Printf("[AuthService] Usuário '%s' autenticado com sucesso", username)
-    return player, nil
+		if isLoggedIn {
+			log.Printf("[AuthService] Login negado: '%s' já tem uma sessão ativa no servidor %s.", username, serverID)
+			return nil, fmt.Errorf("usuário já está logado no servidor %s", serverID)
+		}
+	}
+
+	// PASSO 2: Proceder com a lógica de login local (como estava antes)
+	player, err := as.repo.FindByUsername(username)
+	if err != nil {
+		log.Printf("[AuthService] Erro ao buscar usuário '%s': %v", username, err)
+		return nil, errors.New("erro interno ao tentar fazer login")
+	}
+	if player == nil {
+		log.Printf("[AuthService] Usuário '%s' não encontrado", username)
+		return nil, errors.New("usuário não encontrado")
+	}
+	if as.sessionManager.IsPlayerLoggedIn(player.ID) {
+		log.Printf("[AuthService] Usuário '%s' (ID: %s) já está logado.", username, player.ID)
+		return nil, errors.New("usuário já está logado")
+	}
+
+	as.sessionManager.CreateSession(clientID, player)
+	log.Printf("[AuthService] Sessão criada para '%s'. ClientID: %s -> PlayerID: %s", username, clientID, player.ID)
+	return player, nil
 }
+
+// Logout remove a sessão de um jogador com base no clientID da sua conexão
+func (as *AuthService) Logout(clientID string) error {
+	log.Printf("[AuthService] Recebido pedido de logout para o clientID: %s", clientID)
+	
+	// A lógica de remoção já está no SessionManager, apenas a chamamos.
+	as.sessionManager.RemoveSession(clientID)
+	
+	log.Printf("[AuthService] Sessão removida com sucesso para o clientID: %s", clientID)
+	return nil
+}
+
 
 // ----------------- AUXILIARES --------------------
 

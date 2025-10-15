@@ -37,4 +37,23 @@ func (ah *Authhandler) UserExists(ctx *gin.Context) {
 	})
 }
 
+// IsPlayerLoggedIn é chamado por outros servidores para verificar se um jogador
+// tem uma sessão ativa neste servidor específico.
+// GET /api/v1/auth/is-player-logged-in?username=xyz
+func (ah *Authhandler) IsPlayerLoggedIn(ctx *gin.Context) {
+	username := ctx.Query("username")
+	if username == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "username query param required"})
+		return
+	}
+
+	// Usa o SessionManager para verificar se existe uma sessão para este username
+	isLoggedIn := ah.gameServer.SessionManager.IsPlayerLoggedInByUsername(username)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"is_logged_in": isLoggedIn,
+		"username":     username,
+	})
+}
+
 

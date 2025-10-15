@@ -61,7 +61,7 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
 	raftService, _ := raft.InitRaft(repository,myServerInfo, apiClient)
-	authService := authService.New(repository, apiClient, discovery.KnownServers, raftService)
+	authService := authService.New(repository, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
 	
 
 	gameserver.InitAuth(authService)
@@ -80,7 +80,7 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	// --------------- CONFIGURA PUB SUB E WEBSOCKETS -----------------------
 	broker := pubsub.New()
 	authHandler := handlers.New(authService, broker)
-	wbSocket := websocket.New(broker)
+	wbSocket := websocket.New(broker, gameserver.SessionManager)
 
 	
 	topics.SetUpTopics(*wbSocket, authHandler)

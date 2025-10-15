@@ -19,6 +19,7 @@ import (
 			auth := v1.Group("/auth")
 			{
 				auth.GET("/user-exists", handler.AuthHandler.UserExists)
+				auth.GET("/is-player-logged-in", handler.AuthHandler.IsPlayerLoggedIn)
 			}
 		
 			

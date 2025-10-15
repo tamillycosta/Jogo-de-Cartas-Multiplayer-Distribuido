@@ -8,6 +8,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"sync"
 	"time"
 )
@@ -23,6 +24,7 @@ type GameServer struct {
 	Discovery *discovery.Discovery
 	Raft	  *raft.RaftService
 	ApiClient *client.Client
+	SessionManager *session.SessionManager
 }
 
 func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *discovery.Discovery) *GameServer {
@@ -31,6 +33,7 @@ func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *disco
 		StartTime:  time.Now(),
 		Discovery:  discovery,
 		ApiClient:  apiClient,
+		SessionManager: session.New(),
 	}
 	
 	return gs

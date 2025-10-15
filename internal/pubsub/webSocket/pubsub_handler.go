@@ -10,6 +10,7 @@ import (
     "github.com/gorilla/websocket"
     
     "Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
+    "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 )
 
 var upgrader = websocket.Upgrader{
@@ -22,12 +23,14 @@ var upgrader = websocket.Upgrader{
 type PubSubHandler struct {
     broker   *pubsub.Broker
     handlers map[string]pubsub.HandleTopics
+    sessionManager *session.SessionManager
 }
 
-func New(broker *pubsub.Broker) *PubSubHandler {
+func New(broker *pubsub.Broker, sm *session.SessionManager) *PubSubHandler {
     return &PubSubHandler{
         broker:   broker,
         handlers: make(map[string]pubsub.HandleTopics),
+        sessionManager: sm,
     }
 }
 
@@ -61,6 +64,8 @@ func (h *PubSubHandler) SetWebSocket(w http.ResponseWriter, r *http.Request) {
 func (h *PubSubHandler) handleClientMessages(clientID string, conn *websocket.Conn) {
     defer func() {
         h.broker.RemoveClient(clientID)
+        h.sessionManager.RemoveSession(clientID)
+        log.Printf("Sessão e cliente removidos para o clientID: %s", clientID)
         conn.Close()
     }()
     

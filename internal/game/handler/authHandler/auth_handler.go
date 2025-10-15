@@ -36,8 +36,8 @@ func (h *AuthTopicHandler) HandleTopic(clientID string, topic string, data inter
 	case "auth.login":
 		return h.handleLogin(clientID, data)
 
-	//case "auth.logout":
-	//	return h.handleLogout(clientID, data)
+	case "auth.logout":
+		return h.handleLogout(clientID)
 
 	default:
 		return fmt.Errorf("topico n encontrado: %s", topic)
@@ -103,7 +103,7 @@ func (h *AuthTopicHandler) handleLogin(clientID string, data interface{}) error 
 	log.Printf("[AuthHandler] Cliente %s quer fazer login: %s", clientID, username)
 
 	// Chama AuthService
-	player, err := h.authService.Login(username)
+	player, err := h.authService.Login(username, clientID)
 
 	response := authprotocol.AuthResponse{
 		Type:    "login_response",
@@ -124,6 +124,25 @@ func (h *AuthTopicHandler) handleLogin(clientID string, data interface{}) error 
 	return err
 }
 
+func (h *AuthTopicHandler) handleLogout(clientID string) error {
+	err := h.authService.Logout(clientID)
+
+	response := authprotocol.AuthResponse{
+		Type:    "logout_response",
+		Success: err == nil,
+	}
+
+	if err != nil {
+		response.Error = err.Error()
+		log.Printf("[AuthHandler] Erro ao fazer logout para o cliente %s: %v", clientID, err)
+	} else {
+		response.Message = "Logout realizado com sucesso!"
+		log.Printf("[AuthHandler] Logout bem-sucedido para o cliente %s", clientID)
+	}
+
+	h.publishResponse(clientID, response)
+	return err
+}
 
 
 // ---------------------- AUXILIARES -----------------------------

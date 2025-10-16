@@ -12,6 +12,7 @@ const (
 	CommandCreateUser CommandType = "CREATE_USER"
 	CommandDeleteUser CommandType = "DELETE_USER"
 	CommandUpdateUser CommandType = "UPDATE_USER"
+	CommanOpenPackage CommandType = "OPEN_PACKAGE"
 )
 
 // representa um comando a ser replicado via Raft
@@ -20,17 +21,6 @@ type Command struct {
 	Data      json.RawMessage `json:"data"`
 	Timestamp time.Time       `json:"timestamp"`
 	RequestID string          `json:"request_id"` // Para idempotência
-}
-
-//  representa dados para criar usuário
-type CreateUserCommand struct {
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-}
-
-// representa dados para deletar usuário
-type DeleteUserCommand struct {
-	UserID string `json:"user_id"`
 }
 
 // E a resposta após aplicar um comando

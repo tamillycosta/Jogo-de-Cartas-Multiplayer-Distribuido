@@ -5,16 +5,27 @@
 </head>
 <body>
   <h1>WebSocket Test</h1>
+  
+  <input type="text" id="usernameInput" placeholder="Nome de utilizador" value="joao123">
+  
   <button id="createBtn">Criar Conta</button>
+  <button id="loginBtn">Login</button>
+  <button id="logoutBtn">Logout</button>
   <div id="log"></div>
 
   <script>
     let socket;
     let clientID;
     const logDiv = document.getElementById('log');
+    const usernameInput = document.getElementById('usernameInput');
 
-    //  CONECTAR
-    socket = new WebSocket('ws://localhost:8080/ws');
+    // LÓGICA DINÂMICA: Descobre o endereço do servidor a partir do URL da página
+    const wsHost = window.location.host; // ex: "localhost:8081"
+    const wsURL = `ws://${wsHost}/ws`;
+    logDiv.innerHTML += `<p>A ligar a: ${wsURL}</p>`;
+
+    //  CONECTAR com o endereço dinâmico
+    socket = new WebSocket(wsURL);
 
     //  ESPERAR CONEXÃO ABRIR
     socket.onopen = () => {
@@ -28,12 +39,10 @@
       console.log('Recebido:', data);
       logDiv.innerHTML += `<p> ${JSON.stringify(data)}</p>`;
 
-      // Salvar client ID
       if (data.type === 'connected') {
         clientID = data.client_id;
         console.log(' Client ID:', clientID);
         
-        // Auto-subscribe no tópico de resposta
         socket.send(JSON.stringify({
           type: 'subscribe',
           topic: `auth.response.${clientID}`
@@ -53,24 +62,65 @@
 
     // ENVIAR MENSAGEM (só depois de conectar!)
     document.getElementById('createBtn').onclick = () => {
-      // Verifica se está conectado
+      if (socket.readyState !== WebSocket.OPEN) {
+        alert(' WebSocket não está conectado!');
+        return;
+      }
+      
+      const username = usernameInput.value;
+      if (!username) {
+        alert('Por favor, insira um nome de utilizador.');
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: 'publish',
+        topic: 'auth.create_account',
+        data: { username: username }
+      }));
+
+      console.log(`Enviado: criar conta para ${username}`);
+      logDiv.innerHTML += `<p>Criando conta para ${username}...</p>`;
+    };
+
+     document.getElementById('loginBtn').onclick = () => {
       if (socket.readyState !== WebSocket.OPEN) {
         alert(' WebSocket não está conectado!');
         return;
       }
 
-      // Envia a mensagem
+      const username = usernameInput.value;
+      if (!username) {
+        alert('Por favor, insira um nome de utilizador.');
+        return;
+      }
+
       socket.send(JSON.stringify({
         type: 'publish',
-        topic: 'auth.create_account',
-        data: { username: 'joao123',
-               
-         }
+        topic: 'auth.login',
+        data: { username: username }
       }));
 
-      console.log('Enviado: criar conta');
-      logDiv.innerHTML += '<p>Criando conta para joao...</p>';
+      console.log(`Enviado: login para ${username}`);
+      logDiv.innerHTML += `<p>Fazendo login para ${username}...</p>`;
     };
+
+    document.getElementById('logoutBtn').onclick = () => {
+      if (socket.readyState !== WebSocket.OPEN) {
+        alert(' WebSocket não está conectado!');
+        return;
+      }
+      
+      socket.send(JSON.stringify({
+        type: 'publish',
+        topic: 'auth.logout',
+        data: {}
+      }));
+
+      console.log('Enviado: logout');
+      logDiv.innerHTML += '<p>A fazer logout...</p>';
+    };
+    
   </script>
 </body>
 </html>

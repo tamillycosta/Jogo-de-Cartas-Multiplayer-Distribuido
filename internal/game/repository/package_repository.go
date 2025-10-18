@@ -30,7 +30,7 @@ func (r *PackageRepository) Create( packages *entities.Package) (*entities.Packa
 }
 
 
-// CreateWithID cria um pacote com ID específico (para sincronização Raft)
+// cria um pacote com ID específico (para sincronização Raft)
 func (r *PackageRepository) CreateWithID( packages *entities.Package) (*entities.Package, error) {
 	result := r.db.Create(packages)
 	if result.Error != nil {
@@ -78,10 +78,19 @@ func (r *PackageRepository) FindById(id string)(*entities.Package, error){
 
 
 // Modifica status do pacote // "available", "locked", "opened"
-func (r *PackageRepository) UpdateServerID(packageID, status string) error {
+func (r *PackageRepository) UpdatePackageStatus(packageID, status string) error {
     return r.db.Model(&entities.Package{}).
         Where("id = ?", packageID).
         Update("status", status).Error
 }
 
+
+func (r *PackageRepository) FindByIdWithCards(id string) (*entities.Package, error) {
+    var pkg entities.Package
+    err := r.db.Preload("Cards").First(&pkg, "id = ?", id).Error
+    if err != nil {
+        return nil, err
+    }
+    return &pkg, nil
+}
 

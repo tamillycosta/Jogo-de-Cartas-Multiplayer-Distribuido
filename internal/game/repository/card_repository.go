@@ -63,7 +63,6 @@ func (r *CardRepository ) Delete(id string){
 }
 
 
-
 func (r *CardRepository ) FindById(id string)(*entities.Card, error){
 	var cards entities.Card
 	if err := r.db.Where("id = ?", id).First(&cards).Error; err != nil{
@@ -76,6 +75,14 @@ func (r *CardRepository ) FindById(id string)(*entities.Card, error){
 }
 
 
-
+// Modifica de quem é a carta, um pacote ou um player 
+func (r *CardRepository) UpdateCardStatus(playerID, cardID string) error {
+    return r.db.Model(&entities.Card{}).
+        Where("id = ?", cardID).
+        Updates(map[string]interface{}{
+            "package_id": nil,
+            "player_id":  playerID,
+        }).Error
+}
 
 

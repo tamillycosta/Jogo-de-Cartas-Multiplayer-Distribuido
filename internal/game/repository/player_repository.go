@@ -14,7 +14,7 @@ type PlayerRepository struct {
 }
 
 
-func New(db *gorm.DB)*PlayerRepository{
+func NewPlayerRepository(db *gorm.DB)*PlayerRepository{
 	return &PlayerRepository{db: db}
 }
 

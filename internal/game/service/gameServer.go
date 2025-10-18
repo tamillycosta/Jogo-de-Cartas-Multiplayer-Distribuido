@@ -5,10 +5,12 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
 	aS "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
+	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
 
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"sync"
 	"time"
 )
@@ -20,11 +22,13 @@ type GameServer struct {
 	MyInfo    *entities.ServerInfo
 	Mu        sync.RWMutex
 	StartTime time.Time
-	Auth      *aS.AuthService
 	Discovery *discovery.Discovery
+	Auth      *aS.AuthService
+	Package *packageService.PackageService
 	Raft	  *raft.RaftService
 	ApiClient *client.Client
 	SessionManager *session.SessionManager
+	Seeds 	*seedService.SeedService
 }
 
 func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *discovery.Discovery) *GameServer {
@@ -52,6 +56,17 @@ func (gs *GameServer) InitRaft(raftService *raft.RaftService){
 	gs.Raft = raftService
 }
 
+func (gs *GameServer) InitPackageSystem(packageService *packageService.PackageService){
+	gs.Mu.Lock()
+	defer  gs.Mu.Unlock()
+	gs.Package = packageService
+}
+
+func (gs *GameServer) InitSeeds(seedService *seedService.SeedService){
+	gs.Mu.Lock()
+	defer  gs.Mu.Unlock()
+	gs.Seeds = seedService
+}
 
 func (gs *GameServer) GetCurrentServerInfo() *entities.ServerInfo {
 	gs.Mu.RLock()

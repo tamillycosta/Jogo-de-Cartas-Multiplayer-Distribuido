@@ -2,7 +2,7 @@ package authprotocol
 
 // Representa protocolo de comunicação para autenticação na aplicação (pub/sub) _> cliente -> servidor
 
-// Request de criar conta
+// Request de criar conta (publicação do cliente)
 type CreateAccountRequest struct {
     Username string `json:"username"`
     Password string `json:"password"`
@@ -15,7 +15,7 @@ type LoginRequest struct {
     Password string `json:"password"`
 }
 
-//  Resposta de autenticação
+//  Resposta de autenticação (reply)
 type AuthResponse struct {
     Type    string      `json:"type"`
     Success bool        `json:"success"`

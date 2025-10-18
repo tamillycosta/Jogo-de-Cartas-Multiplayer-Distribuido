@@ -1,4 +1,4 @@
-package handlers
+package authhandler
 
 import (
 	"fmt"
@@ -21,7 +21,6 @@ func New(authService *auth.AuthService, broker *pubsub.Broker) *AuthTopicHandler
 		broker:      broker,
 	}
 }
-
 
 
 //Processa mensagens recebidas via Pub/Sub
@@ -143,6 +142,7 @@ func (h *AuthTopicHandler) handleLogout(clientID string) error {
 	h.publishResponse(clientID, response)
 	return err
 }
+
 
 
 // ---------------------- AUXILIARES -----------------------------

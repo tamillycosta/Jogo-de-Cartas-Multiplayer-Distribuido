@@ -52,7 +52,7 @@ func New(config *RaftConfig, fsm *fms.GameFSM,  client *client.Client) (*RaftSer
 }
 
 // chamado no SetUpGameServer
-func InitRaft(repository *repository.PlayerRepository, myServerInfo *entities.ServerInfo, client *client.Client)(*RaftService, error) {
+func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *repository.PackageRepository, cardRepository *repository.CardRepository,myServerInfo *entities.ServerInfo, client *client.Client)(*RaftService, error) {
 	httpAddr := fmt.Sprintf("http://%s:%d", myServerInfo.Address, myServerInfo.Port)
 	raftDir := filepath.Join("./data", myServerInfo.ID, "raft")
 	bootstrap := util.GetEnvBool("RAFT_BOOTSTRAP",false)
@@ -65,7 +65,7 @@ func InitRaft(repository *repository.PlayerRepository, myServerInfo *entities.Se
 		Bootstrap: bootstrap,
 		
 	}
-	fsm := fms.New(repository)
+	fsm := fms.New(playerRepository, packageRepository,cardRepository )
 	return New(raftConfig, fsm, client)
 
 }
@@ -256,7 +256,7 @@ func (rs *RaftService) GetServers() []entities.ServerInfo {
 	for _, server := range future.Configuration().Servers {
 		servers = append(servers, entities.ServerInfo{
 			ID:       string(server.ID),
-			Address:  string(server.Address), // HTTP address
+			Address:  string(server.Address), 
 			IsLeader: string(server.ID) == rs.GetLeaderID(),
 		})
 	}

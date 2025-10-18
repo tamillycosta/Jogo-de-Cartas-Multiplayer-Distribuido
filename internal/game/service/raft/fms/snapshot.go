@@ -11,15 +11,21 @@ import (
 
 type GameSnapshot struct {
 	players           []*entities.Player
+	packages          []*entities.Package
+	cards             []*entities.Card
 	processedRequests map[string]bool
 }
 
 func (s *GameSnapshot) Persist(sink raft.SnapshotSink) error {
 	data := struct {
-		Players           []*entities.Player `json:"players"`
-		ProcessedRequests map[string]bool    `json:"processed_requests"`
+		Players           []*entities.Player  `json:"players"`
+		Packages          []*entities.Package `json:"packages"`
+		Cards             []*entities.Card    `json:"cards"`
+		ProcessedRequests map[string]bool     `json:"processed_requests"`
 	}{
 		Players:           s.players,
+		Packages:          s.packages,
+		Cards:             s.cards,
 		ProcessedRequests: s.processedRequests,
 	}
 

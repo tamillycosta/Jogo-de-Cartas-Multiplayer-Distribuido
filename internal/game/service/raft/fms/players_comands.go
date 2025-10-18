@@ -16,34 +16,20 @@ import (
 func (f *GameFSM) applyCreateUser(data json.RawMessage) *comands.ApplyResponse {
 	var cmd comands.CreateUserCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
-		return &comands.ApplyResponse{
-			Success: false,
-			Error:   fmt.Sprintf("invalid create user command: %v", err),
-		}
+		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	// Cria usuário com ID específico 
-	player, err := f.repository.CreateWithID(&entities.Player{Username: cmd.Username, ID: cmd.UserID})
-	if err != nil {
-	
-		if f.repository.UsernameExists(cmd.Username) {
-			log.Printf("ℹUsuário '%s' já existe, ignorando", cmd.Username)
-			return &comands.ApplyResponse{
-				Success: true,
-				Data:    "user already exists",
-			}
-		}
-		return &comands.ApplyResponse{
-			Success: false,
-			Error:   fmt.Sprintf("failed to create user: %v", err),
-		}
+	player := &entities.Player{
+		ID:       cmd.UserID,
+		Username: cmd.Username,
 	}
 
-	log.Printf("[FSM] Usuário '%s' criado com ID: %s", cmd.Username, cmd.UserID)
-	return &comands.ApplyResponse{
-		Success: true,
-		Data:    player,
+	if _, err := f.playerRepository.CreateWithID(player); err != nil {
+		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
+
+	log.Printf("[FSM] Player criado: %s (ID: %s)", cmd.Username, cmd.UserID)
+	return &comands.ApplyResponse{Success: true, Data: player}
 }
 
 // --------------------- FALTA Implementar lógica de delete e update

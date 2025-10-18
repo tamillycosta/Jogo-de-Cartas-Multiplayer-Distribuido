@@ -17,21 +17,27 @@ import (
 // É a máquina de estados que aplica comandos no banco de dados
 type GameFSM struct {
 	mu         sync.RWMutex
-	repository *repository.PlayerRepository
+	playerRepository *repository.PlayerRepository
+	packageRepository *repository.PackageRepository
+	cardRepository *repository.CardRepository
 	
 	// Cache de IDs de requisições processadas (para idempotência)
 	processedRequests map[string]bool
 }
 
-func New(repo *repository.PlayerRepository) *GameFSM {
+func New(
+	playerRepo *repository.PlayerRepository, packageRepo *repository.PackageRepository,cardRepo *repository.CardRepository,) *GameFSM {
 	return &GameFSM{
-		repository:        repo,
+		playerRepository:        playerRepo,
+		packageRepository:       packageRepo,
+		cardRepository:          cardRepo,
 		processedRequests: make(map[string]bool),
 	}
 }
 
 
 // é chamado quando um comando é commitado pelo Raft
+
 func (f *GameFSM) Apply(logs *raft.Log) interface{} {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -46,22 +52,39 @@ func (f *GameFSM) Apply(logs *raft.Log) interface{} {
 
 	// Verifica idempotência
 	if cmd.RequestID != "" && f.processedRequests[cmd.RequestID] {
-		log.Printf("Comando já processado: %s", cmd.RequestID)
+		log.Printf("[FSM] Comando já processado: %s", cmd.RequestID)
 		return &comands.ApplyResponse{
 			Success: true,
 			Data:    "already processed",
 		}
 	}
 
-	
+	// Processa comando
 	var response *comands.ApplyResponse
 	switch cmd.Type {
+	// Players
 	case comands.CommandCreateUser:
 		response = f.applyCreateUser(cmd.Data)
 	case comands.CommandDeleteUser:
 		response = f.applyDeleteUser(cmd.Data)
 	case comands.CommandUpdateUser:
 		response = f.applyUpdateUser(cmd.Data)
+	
+	// Packages
+	case comands.CommandCreatePackage:
+		response = f.applyCreatePackage(cmd.Data)
+
+	case comands.CommandLockPackage:
+		response = f.applyLockPackage(cmd.Data)
+	case comands.CommandOpenPackage:
+		response = f.applyOpenPackage(cmd.Data)
+	
+	// Cards
+	case comands.CommandCreateCard:
+		response = f.applyCreateCard(cmd.Data)
+	case comands.CommandTransferCard:
+		response = f.applyTransferCard(cmd.Data)
+	
 	default:
 		response = &comands.ApplyResponse{
 			Success: false,
@@ -83,14 +106,26 @@ func (f *GameFSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	// Obtém todos os players do banco
-	players, err := f.repository.GetAll()
+	// Obtém todos os dados
+	players, err := f.playerRepository.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	packages, err := f.packageRepository.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	cards, err := f.cardRepository.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
 	return &GameSnapshot{
 		players:           players,
+		packages:          packages,
+		cards:             cards,
 		processedRequests: f.cloneProcessedRequests(),
 	}, nil
 }
@@ -102,32 +137,54 @@ func (f *GameFSM) Restore(snapshot io.ReadCloser) error {
 	defer snapshot.Close()
 
 	var data struct {
-		Players           []*entities.Player `json:"players"`
-		ProcessedRequests map[string]bool    `json:"processed_requests"`
+		Players           []*entities.Player  `json:"players"`
+		Packages          []*entities.Package `json:"packages"`
+		Cards             []*entities.Card    `json:"cards"`
+		ProcessedRequests map[string]bool     `json:"processed_requests"`
 	}
 
 	if err := json.NewDecoder(snapshot).Decode(&data); err != nil {
 		return err
 	}
 
-	// Limpa banco atual
-	if err := f.repository.DeleteAll(); err != nil {
-		return fmt.Errorf("failed to clear database: %v", err)
+	// Limpa bancos
+	if err := f.playerRepository.DeleteAll(); err != nil {
+		return err
+	}
+	if err := f.packageRepository.DeleteAll(); err != nil {
+		return err
+	}
+	if err := f.cardRepository.DeleteAll(); err != nil {
+		return err
 	}
 
 	// Restaura players
 	for _, player := range data.Players {
-		if _, err := f.repository.CreateWithID(&entities.Player{Username: player.Username, ID: player.ID}); err != nil {
-			log.Printf("⚠️ Erro ao restaurar player %s: %v", player.Username, err)
+		if _, err := f.playerRepository.CreateWithID(player); err != nil {
+			log.Printf("Erro ao restaurar player: %v", err)
+		}
+	}
+
+	// Restaura packages
+	for _, pkg := range data.Packages {
+		if _, err := f.packageRepository.CreateWithID(pkg); err != nil {
+			log.Printf("Erro ao restaurar package: %v", err)
+		}
+	}
+
+	// Restaura cards
+	for _, card := range data.Cards {
+		if _, err := f.cardRepository.CreateWithID(card); err != nil {
+			log.Printf("Erro ao restaurar card: %v", err)
 		}
 	}
 
 	f.processedRequests = data.ProcessedRequests
 
-	log.Printf("[FSM] Snapshot restaurado: %d players", len(data.Players))
+	log.Printf("[FSM] Snapshot restaurado: %d players, %d packages, %d cards",
+		len(data.Players), len(data.Packages), len(data.Cards))
 	return nil
 }
-
 
 func (f *GameFSM) cloneProcessedRequests() map[string]bool {
 	clone := make(map[string]bool, len(f.processedRequests))
@@ -136,4 +193,3 @@ func (f *GameFSM) cloneProcessedRequests() map[string]bool {
 	}
 	return clone
 }
-

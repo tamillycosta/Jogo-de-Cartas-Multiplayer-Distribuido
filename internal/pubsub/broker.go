@@ -21,7 +21,7 @@ func New() *Broker {
     }
 }
 
-// Subscribe - Cliente se inscreve em um tópico
+//  Cliente se inscreve em um tópico
 func (b *Broker) Subscribe(clientID, topic string, conn *websocket.Conn) {
     b.mu.Lock()
     defer b.mu.Unlock()
@@ -37,7 +37,7 @@ func (b *Broker) Subscribe(clientID, topic string, conn *websocket.Conn) {
 }
 
 
-// Unsubscribe - Cliente cancela inscrição
+// Cliente cancela inscrição
 func (b *Broker) Unsubscribe(clientID, topic string) {
     b.mu.Lock()
     defer b.mu.Unlock()
@@ -50,7 +50,7 @@ func (b *Broker) Unsubscribe(clientID, topic string) {
 }
 
 
-// Publish - Publica mensagem em um tópico
+// Publica mensagem em um tópico
 func (b *Broker) Publish(topic string, message interface{}) {
     b.mu.RLock()
     defer b.mu.RUnlock()
@@ -77,7 +77,7 @@ func (b *Broker) Publish(topic string, message interface{}) {
 }
 
 
-// RemoveClient - Remove cliente de todos os tópicos
+//  Remove cliente de todos os tópicos
 func (b *Broker) RemoveClient(clientID string) {
     b.mu.Lock()
     defer b.mu.Unlock()

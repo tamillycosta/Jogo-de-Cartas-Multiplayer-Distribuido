@@ -19,7 +19,7 @@ var upgrader = websocket.Upgrader{
     CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-// PubSubHandler - Handler genérico que delega os Topicos da aplicação 
+//  Handler genérico que delega os Topicos da aplicação 
 type PubSubHandler struct {
     broker   *pubsub.Broker
     handlers map[string]pubsub.HandleTopics

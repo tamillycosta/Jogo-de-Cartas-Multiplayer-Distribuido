@@ -5,7 +5,7 @@ import (
     "github.com/gorilla/websocket"
 )
 
-// ConnectionManager - Gerencia conexões WebSocket ativas
+//  Gerencia conexões WebSocket ativas
 type ConnectionManager struct {
     connections map[string]*websocket.Conn
     mu          sync.RWMutex

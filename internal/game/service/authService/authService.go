@@ -23,7 +23,7 @@ type AuthService struct {
 	repo         *repository.PlayerRepository
 	apiClient    *client.Client
 	knownServers map[string]*entities.ServerInfo
-	raft         *raftService.RaftService // ← RAFT ADICIONADO!
+	raft         *raftService.RaftService 
 	sessionManager *session.SessionManager
 }
 
@@ -124,7 +124,7 @@ func (as *AuthService) Login(username string, clientID string) (*gameEntities.Pl
 		if err != nil {
 			// Se houver um erro, pode ser que o servidor esteja temporariamente offline.
 			// É mais seguro continuar a verificação nos outros.
-			log.Printf("⚠️  Erro ao verificar sessão no servidor %s: %v", serverID, err)
+			log.Printf("Erro ao verificar sessão no servidor %s: %v", serverID, err)
 			continue
 		}
 

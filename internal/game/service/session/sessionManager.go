@@ -39,17 +39,19 @@ func (sm *SessionManager) IsPlayerLoggedIn(playerID string) bool {
 
 // RemoveSession remove uma sessão com base no clientID, que é a única informação
 // que temos quando um cliente se desconecta.
-func (sm *SessionManager) RemoveSession(clientID string) {
+func (sm *SessionManager) RemoveSession(clientID string) bool {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// Encontra o playerID a partir do clientID
 	playerID, exists := sm.clientToPlayer[clientID]
 	if exists {
 		// Remove dos dois mapas para manter a consistência
 		delete(sm.playerSessions, playerID)
 		delete(sm.clientToPlayer, clientID)
+		return true // Sessão encontrada e removida
 	}
+
+	return false // Nenhuma sessão foi encontrada para este clientID
 }
 
 // IsPlayerLoggedInByUsername verifica se um jogador com um determinado username

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test WebSocket</title>
+</head>
+<body>
+  <h1>WebSocket Test</h1>
+  <button id="createBtn">Criar Conta</button>
+  <div id="log"></div>
+
+  <script>
+    let socket;
+    let clientID;
+    const logDiv = document.getElementById('log');
+
+    //  CONECTAR
+    socket = new WebSocket('ws://localhost:8080/ws');
+
+    //  ESPERAR CONEXÃO ABRIR
+    socket.onopen = () => {
+      console.log(' Conectado!');
+      logDiv.innerHTML += '<p> Conectado!</p>';
+    };
+
+    //  RECEBER MENSAGENS
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Recebido:', data);
+      logDiv.innerHTML += `<p> ${JSON.stringify(data)}</p>`;
+
+      // Salvar client ID
+      if (data.type === 'connected') {
+        clientID = data.client_id;
+        console.log(' Client ID:', clientID);
+        
+        // Auto-subscribe no tópico de resposta
+        socket.send(JSON.stringify({
+          type: 'subscribe',
+          topic: `auth.response.${clientID}`
+        }));
+      }
+    };
+
+    socket.onerror = (e) => {
+      console.error(' Erro:', e);
+      logDiv.innerHTML += '<p> Erro na conexão</p>';
+    };
+
+    socket.onclose = () => {
+      console.log(' Desconectado');
+      logDiv.innerHTML += '<p>🔌 Desconectado</p>';
+    };
+
+    // ENVIAR MENSAGEM (só depois de conectar!)
+    document.getElementById('createBtn').onclick = () => {
+      // Verifica se está conectado
+      if (socket.readyState !== WebSocket.OPEN) {
+        alert(' WebSocket não está conectado!');
+        return;
+      }
+
+      // Envia a mensagem
+      socket.send(JSON.stringify({
+        type: 'publish',
+        topic: 'auth.create_account',
+        data: { username: 'joao123',
+               
+         }
+      }));
+
+      console.log('Enviado: criar conta');
+      logDiv.innerHTML += '<p>Criando conta para joao...</p>';
+    };
+  </script>
+</body>
+</html>

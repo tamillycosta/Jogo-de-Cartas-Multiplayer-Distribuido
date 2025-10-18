@@ -157,10 +157,15 @@ func (as *AuthService) Login(username string, clientID string) (*gameEntities.Pl
 // Logout remove a sessão de um jogador com base no clientID da sua conexão
 func (as *AuthService) Logout(clientID string) error {
 	log.Printf("[AuthService] Recebido pedido de logout para o clientID: %s", clientID)
-	
-	// A lógica de remoção já está no SessionManager, apenas a chamamos.
-	as.sessionManager.RemoveSession(clientID)
-	
+
+	// A função RemoveSession agora diz-nos se o logout foi efetivo.
+	wasRemoved := as.sessionManager.RemoveSession(clientID)
+
+	if !wasRemoved {
+		log.Printf("[AuthService] Tentativa de logout para o clientID %s, mas não havia sessão ativa.", clientID)
+		return errors.New("nenhuma sessão ativa para fazer logout")
+	}
+
 	log.Printf("[AuthService] Sessão removida com sucesso para o clientID: %s", clientID)
 	return nil
 }

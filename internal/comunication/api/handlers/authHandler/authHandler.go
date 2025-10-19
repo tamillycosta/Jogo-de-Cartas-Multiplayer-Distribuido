@@ -37,7 +37,7 @@ func (ah *Authhandler) UserExists(ctx *gin.Context) {
 	})
 }
 
-// IsPlayerLoggedIn é chamado por outros servidores para verificar se um jogador
+// é chamado por outros servidores para verificar se um jogador
 // tem uma sessão ativa neste servidor específico.
 // GET /api/v1/auth/is-player-logged-in?username=xyz
 func (ah *Authhandler) IsPlayerLoggedIn(ctx *gin.Context) {
@@ -56,4 +56,23 @@ func (ah *Authhandler) IsPlayerLoggedIn(ctx *gin.Context) {
 	})
 }
 
+// POST /api/v1/auth/create-account
+// è rota para servidores que não são lideres 
+// requisitarem server lider para criar conta de um jogador 
+func (ah *Authhandler) CreateAccount(ctx *gin.Context) {
+	var payload struct {
+		Username string `json:"username"`
+	}
+	if err := ctx.BindJSON(&payload); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
 
+	if payload.Username == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "username required"})
+		return
+	}
+
+	err := ah.gameServer.Auth.CreateAccount(payload.Username)
+	ctx.JSON(http.StatusOK, gin.H{"error": err})
+}

@@ -49,7 +49,6 @@ func (as *AuthService) CreateAccount(username string) error {
 		return errors.New("username não pode ser vazio")
 	}
 
-
 	// Verifica se já existe localmente 
 	if as.UserExists(username) {
 		log.Printf("[AuthService] Username '%s' já existe localmente", username)
@@ -58,17 +57,16 @@ func (as *AuthService) CreateAccount(username string) error {
 
 	// Verifica se este servidor é o lider , se não for busca o endereço do lider do cluster
 	if !as.raft.IsLeader() {
-		leaderAddr := as.raft.GetLeaderHTTPAddr()
-		log.Printf("[AuthService] Não sou líder! Líder atual: %s", leaderAddr)
+		return as.forwardToLeader(username)
 		
-		if leaderAddr == "" {
-			return errors.New("nenhum líder disponível no momento, tente novamente")
-		}
-		
-		return fmt.Errorf("não sou o líder. Conecte-se ao líder: %s", leaderAddr)
 	}
 
-	
+	return as.createAccountAsLeader(username)
+}
+
+
+func (as *AuthService) createAccountAsLeader(username string)error{
+
 	log.Printf("[AuthService] Sou líder! Processando comando via Raft...")
 
 	userID := uuid.New().String()
@@ -89,8 +87,6 @@ func (as *AuthService) CreateAccount(username string) error {
 		RequestID: uuid.New().String(),
 	}
 
-	
-	
 	// Aplica comando via Raft (será replicado para todos os servidores segidores)
 	response, err := as.raft.ApplyCommand(cmd)
 	if err != nil {
@@ -105,7 +101,27 @@ func (as *AuthService) CreateAccount(username string) error {
 
 	log.Printf("[AuthService] Usuário '%s' criado e replicado no cluster via Raft!", username)
 	return nil
+} 
+
+
+// redireciona criação de conta para o lider chamando rota da api rest 
+func (as *AuthService) forwardToLeader(username string)error{
+	leaderAddr := as.raft.GetLeaderHTTPAddr()
+	
+	if leaderAddr == "" {
+		return errors.New("nenhum líder disponível no momento, tente novamente")
+	}
+
+	if err :=  as.apiClient.AuthInterface.AskForCreatePlayerAccount(leaderAddr, username); err != nil{
+		return fmt.Errorf("erro ao contatar líder: %v", err)
+	}
+
+	log.Printf("Conta criada via líder: %s", username)
+
+	return  nil
 }
+
+
 
 // Login autentica um usuário, verifica se ele já está logado em outro servidor
 // no cluster, e cria uma sessão em memória.

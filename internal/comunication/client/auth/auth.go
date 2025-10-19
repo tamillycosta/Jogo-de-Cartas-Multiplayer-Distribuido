@@ -75,13 +75,13 @@ func (a *AuthClientInterface) CheckPlayerLoggedIn(serverAddress string, port int
 	return result.IsLoggedIn, nil
 }
 
-// POST /api/v1/propagate-user
-// Propaga criação de usuário para outro servidor
-func (a *AuthClientInterface) PropagateUser(serverAddress string, port int, userID, username string) error {
-	url := fmt.Sprintf("http://%s:%d/api/v1/propagate-user", serverAddress, port)
-
+// Pede ao servidor lider para criar a conta de um player .
+// // POST /api/v1/auth/create-account
+func (a *AuthClientInterface) AskForCreatePlayerAccount(leaderAddr, username string) error{
+	// Faz requisição HTTP para o líder
+	url := fmt.Sprintf("%s/api/v1/auth/create-account", leaderAddr)
+	
 	payload := map[string]string{
-		"user_id":  userID,
 		"username": username,
 	}
 

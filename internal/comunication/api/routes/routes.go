@@ -20,9 +20,13 @@ import (
 			{
 				auth.GET("/user-exists", handler.AuthHandler.UserExists)
 				auth.GET("/is-player-logged-in", handler.AuthHandler.IsPlayerLoggedIn)
+				auth.POST("/create-account", handler.AuthHandler.CreateAccount)
 			}
 		
-			
+			packages := v1.Group("/package")
+			{
+				packages.POST("open-package", handler.PackageHandler.OpenPackage)
+			}
 			// Raft ------------------- Gerenciamento do Cluster ------------------
 			
 			raft := v1.Group("/raft")

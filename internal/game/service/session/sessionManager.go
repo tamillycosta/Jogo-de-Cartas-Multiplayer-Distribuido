@@ -37,6 +37,14 @@ func (sm *SessionManager) IsPlayerLoggedIn(playerID string) bool {
 	return exists
 }
 
+// IsClientLoggedIn verifica se um clientID já possui uma sessão ativa.
+func (sm *SessionManager) IsClientLoggedIn(clientID string) bool {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	_, exists := sm.clientToPlayer[clientID]
+	return exists
+}
+
 // RemoveSession remove uma sessão com base no clientID, que é a única informação
 // que temos quando um cliente se desconecta.
 func (sm *SessionManager) RemoveSession(clientID string) bool {

@@ -1,6 +1,7 @@
 package packageService
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/aplication/usecases"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
@@ -14,20 +15,23 @@ import (
 
 	"github.com/google/uuid"
 )
-// Seriviço para gerenciar pacotes 
+
+// Seriviço para gerenciar pacotes
 type PackageService struct {
 	packageRepo    *repository.PackageRepository
 	cardRepo       *repository.CardRepository
+	apiClient    *client.Client
 	raft           *raftService.RaftService
 	sessionManager *session.SessionManager
 }
 
 func New(
-	packageRepo *repository.PackageRepository,cardRepo *repository.CardRepository,raft *raftService.RaftService,sessionManager *session.SessionManager) *PackageService {
+	packageRepo *repository.PackageRepository,cardRepo *repository.CardRepository,apiClient *client.Client,raft *raftService.RaftService,sessionManager *session.SessionManager) *PackageService {
 	return &PackageService{
 		packageRepo:    packageRepo,
 		cardRepo:       cardRepo,
 		raft:           raft,
+		apiClient: apiClient,
 		sessionManager: sessionManager,
 	}
 }
@@ -38,55 +42,21 @@ func New(
 // Caso encontre pacote , muda o estado para bloqueado 
 // Ao abrir pacote muda o estado para abeeto e direciona cartas para jogador 
 func (ps *PackageService) OpenPackage(playerID string) error {
-	log.Printf("📦 [PackageService] Tentando abrir pacote para player: %s", playerID)
+	log.Printf("[PackageService] Tentando abrir pacote para player: %s", playerID)
 
-	// 1. Verifica se é líder
-	if !ps.raft.IsLeader() {
-		return fmt.Errorf("apenas o líder pode abrir packages")
-	}
 
 	if !ps.sessionManager.IsPlayerLoggedIn(playerID) {
 		return errors.New("usuário não está logado")
 	}
 
-	// Busca pacotes disponíveis
-	packages, err := ps.packageRepo.GetAll()
-	if err != nil {
-		return fmt.Errorf("não foi possível carregar os pacotes: %v", err)
+	// Verifica se é líder
+	if !ps.raft.IsLeader() {
+		return ps.forwardToLeader(playerID)
 	}
 
-	// Seleciona pacote disponível
-	availablePackage, err := usecases.SelectAvailablePackage(packages)
-	if err != nil {
-		return fmt.Errorf("erro ao selecionar pacote: %v", err)
-	}
+	return ps.openPackageAsLeader(playerID)
 
 	
-	if availablePackage == nil {
-		return errors.New("nenhum pacote disponível no momento")
-	}
-
-	log.Printf("📦 [PackageService] Pacote selecionado: %s", availablePackage.ID)
-
-
-
-	// Processo para abertura 
-	err = ps.blockPackage(availablePackage.ID, playerID)
-	if err != nil {
-		return fmt.Errorf("erro ao bloquear pacote: %v", err)
-	}
-
-	err = ps.openPackage(availablePackage.ID, playerID)
-	if err != nil {
-		return fmt.Errorf("erro ao abrir pacote: %v", err)
-	}
-	err = ps.transferCards(availablePackage.ID, playerID)
-	if err != nil {
-		return fmt.Errorf("erro ao transferir cartas: %v", err)
-	}
-
-	log.Printf("[PackageService] Package %s aberto por jogador %s", availablePackage.ID, playerID)
-	return nil
 }
 
 
@@ -186,6 +156,70 @@ func (ps *PackageService) transferCards(packageID, playerID string) error {
 
 	return nil
 }
+
+
+
+// redireciona criação de conta para o lider chamando rota da api rest 
+func (pa *PackageService) forwardToLeader(playerID string)error{
+	leaderAddr := pa.raft.GetLeaderHTTPAddr()
+	
+	if leaderAddr == "" {
+		return errors.New("nenhum líder disponível no momento, tente novamente")
+	}
+
+	if err :=  pa.apiClient.PackageInterface.AskForOpenPackge(leaderAddr, playerID); err != nil{
+		return fmt.Errorf("erro ao contatar líder: %v", err)
+	}
+
+	log.Printf("pacote de %s aberto via líder:" , playerID)
+
+	return  nil
+}
+
+// Metodo chamada pelo rota api por um servidor n lider 
+func (ps *PackageService) openPackageAsLeader(playerID string) error{
+	log.Printf("[PackageService] Sou líder! Processando comando via Raft...")
+	// Busca pacotes disponíveis
+	packages, err := ps.packageRepo.GetAll()
+	if err != nil {
+		return fmt.Errorf("não foi possível carregar os pacotes: %v", err)
+	}
+
+	// Seleciona pacote disponível
+	availablePackage, err := usecases.SelectAvailablePackage(packages)
+	if err != nil {
+		return fmt.Errorf("erro ao selecionar pacote: %v", err)
+	}
+
+	
+	if availablePackage == nil {
+		return errors.New("nenhum pacote disponível no momento")
+	}
+
+	log.Printf("[PackageService] Pacote selecionado: %s", availablePackage.ID)
+
+
+
+	// Processo para abertura 
+	err = ps.blockPackage(availablePackage.ID, playerID)
+	if err != nil {
+		return fmt.Errorf("erro ao bloquear pacote: %v", err)
+	}
+
+	err = ps.openPackage(availablePackage.ID, playerID)
+	if err != nil {
+		return fmt.Errorf("erro ao abrir pacote: %v", err)
+	}
+	err = ps.transferCards(availablePackage.ID, playerID)
+	if err != nil {
+		return fmt.Errorf("erro ao transferir cartas: %v", err)
+	}
+
+	log.Printf("[PackageService] Package %s aberto por jogador %s", availablePackage.ID, playerID)
+	return nil
+}
+
+
 
 
 // ----------------- Serviço para criação dos pacotes --------------------------

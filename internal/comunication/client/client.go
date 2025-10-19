@@ -2,6 +2,7 @@ package client
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/auth"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/packages"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/raft"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"encoding/json"
@@ -17,6 +18,7 @@ type Client struct {
 	timeout    time.Duration
 	AuthInterface *auth.AuthClientInterface
 	RaftInterface *raft.RaftClientInterface
+	PackageInterface *packages.PackageClientInterface
 }
 
 
@@ -28,6 +30,7 @@ func New(timeout time.Duration) *Client {
     }
 	client.AuthInterface = auth.New(*client.HttpClient)
 	client.RaftInterface = raft.New(*client.HttpClient)
+	client.PackageInterface = packages.New(*client.HttpClient)
 	return &client
 }
 

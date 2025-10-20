@@ -5,12 +5,16 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/config"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler"
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/authHandler"
+	matchhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/matchHandler"
 
 	packgehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/packgeHandler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
+	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
+	matchlocal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_local"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
@@ -59,10 +63,13 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	packageRepo := repository.NewPackageRepository(&db)
 	cardRepo := repository.NewCardRepository(&db)
 
+	// MatchState
+	matchState := matchstate.New()
+
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
-	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, myServerInfo, apiClient)
+	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, matchState, myServerInfo, apiClient )
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
-	pkgService := packageService.New(packageRepo, cardRepo, raftService, gameserver.SessionManager)
+	pkgService := packageService.New(packageRepo, cardRepo, apiClient,raftService, gameserver.SessionManager)
 	seedSvc := seedService.New(raftService, pkgService)
 
 	gameserver.InitAuth(authService)
@@ -86,9 +93,13 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	authHandler := authhandler.New(authService, broker)
 	packgehandler := packgehandler.New(pkgService, broker)
 
+	match := matchlocal.New(myServerInfo.ID)
+	gameSessionLocal := local.NewGameSessionManager(playerRepo,cardRepo,gameserver.SessionManager,match, broker)
+	matchHandler := matchhandler.New(match,gameSessionLocal,gameserver.SessionManager,broker )
+
 	// injeta todos os handlers da aplicação para o pub sub
-	handler := handler.New(authHandler, packgehandler)
-	wbSocket := websocket.New(broker, gameserver.SessionManager)
+	handler := handler.New(authHandler, packgehandler,matchHandler)
+	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionLocal)
 	topics.SetUpTopics(*wbSocket, handler)
 
 	//  Rota WebSocket (cliente -> servidor)

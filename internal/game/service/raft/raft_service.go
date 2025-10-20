@@ -3,6 +3,7 @@ package raft
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/fms"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/trasport"
@@ -27,20 +28,20 @@ type RaftService struct {
 	fsm       *fms.GameFSM
 	transport *trasport.HTTPTransport
 	config    *RaftConfig
-	ApiClient    *client.Client
+	ApiClient *client.Client
 }
 
 type RaftConfig struct {
-	ServerID    string
-	HTTPAddr    string
-	RaftDir     string 
-	Bootstrap   bool   // Se true, inicia como líder
+	ServerID  string
+	HTTPAddr  string
+	RaftDir   string
+	Bootstrap bool // Se true, inicia como líder
 }
 
-func New(config *RaftConfig, fsm *fms.GameFSM,  client *client.Client) (*RaftService, error) {
+func New(config *RaftConfig, fsm *fms.GameFSM, client *client.Client) (*RaftService, error) {
 	rs := &RaftService{
-		fsm:    fsm,
-		config: config,
+		fsm:       fsm,
+		config:    config,
 		ApiClient: client,
 	}
 
@@ -52,27 +53,26 @@ func New(config *RaftConfig, fsm *fms.GameFSM,  client *client.Client) (*RaftSer
 }
 
 // chamado no SetUpGameServer
-func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *repository.PackageRepository, cardRepository *repository.CardRepository,myServerInfo *entities.ServerInfo, client *client.Client)(*RaftService, error) {
+func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *repository.PackageRepository, cardRepository *repository.CardRepository, matchState *matchstate.MatchmakingState, myServerInfo *entities.ServerInfo, client *client.Client) (*RaftService, error) {
 	httpAddr := fmt.Sprintf("http://%s:%d", myServerInfo.Address, myServerInfo.Port)
 	raftDir := filepath.Join("./data", myServerInfo.ID, "raft")
-	bootstrap := util.GetEnvBool("RAFT_BOOTSTRAP",false)
+	bootstrap := util.GetEnvBool("RAFT_BOOTSTRAP", false)
 
-	// Inicializa sistema de raft 
+	// Inicializa sistema de raft
 	raftConfig := &RaftConfig{
 		ServerID:  myServerInfo.ID,
-		HTTPAddr:  httpAddr, 
+		HTTPAddr:  httpAddr,
 		RaftDir:   raftDir,
 		Bootstrap: bootstrap,
-		
 	}
-	fsm := fms.New(playerRepository, packageRepository,cardRepository )
+	fsm := fms.New(playerRepository, packageRepository, cardRepository, matchState)
 	return New(raftConfig, fsm, client)
 
 }
 
 // Seta configurações basicas do raft
 func (rs *RaftService) setupRaft() error {
-	
+
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(rs.config.ServerID)
 
@@ -104,7 +104,7 @@ func (rs *RaftService) setupRaft() error {
 		return fmt.Errorf("failed to create snapshot store: %v", err)
 	}
 
-	// Transport HTTP 
+	// Transport HTTP
 	transport := trasport.New(rs.config.HTTPAddr, 10*time.Second)
 	rs.transport = transport
 
@@ -142,7 +142,7 @@ func (rs *RaftService) GetTransport() *trasport.HTTPTransport {
 	return rs.transport
 }
 
-//aplica comando no cluster
+// aplica comando no cluster
 func (rs *RaftService) ApplyCommand(cmd comands.Command) (*comands.ApplyResponse, error) {
 	if cmd.RequestID == "" {
 		cmd.RequestID = uuid.New().String()
@@ -167,7 +167,6 @@ func (rs *RaftService) ApplyCommand(cmd comands.Command) (*comands.ApplyResponse
 func (rs *RaftService) IsLeader() bool {
 	return rs.raft.State() == raft.Leader
 }
-
 
 func (rs *RaftService) GetLeaderHTTPAddr() string {
 	addr, _ := rs.raft.LeaderWithID()
@@ -198,8 +197,6 @@ func (rs *RaftService) WaitForLeader(timeout time.Duration) error {
 	return fmt.Errorf("timeout waiting for leader")
 }
 
-
-
 // adiciona servidor ao cluster
 // httpAddr deve ser o endereço HTTP completo (ex: "http://server-b:8081")
 func (rs *RaftService) AddVoter(serverID, httpAddr string) error {
@@ -211,7 +208,7 @@ func (rs *RaftService) AddVoter(serverID, httpAddr string) error {
 
 	future := rs.raft.AddVoter(
 		raft.ServerID(serverID),
-		raft.ServerAddress(httpAddr), 
+		raft.ServerAddress(httpAddr),
 		0,
 		10*time.Second,
 	)
@@ -223,7 +220,6 @@ func (rs *RaftService) AddVoter(serverID, httpAddr string) error {
 	log.Printf("Servidor %s adicionado ao cluster", serverID)
 	return nil
 }
-
 
 func (rs *RaftService) RemoveServer(serverID string) error {
 	if !rs.IsLeader() {
@@ -244,7 +240,6 @@ func (rs *RaftService) GetStats() map[string]string {
 	return rs.raft.Stats()
 }
 
-
 // retorna lista de servidores
 func (rs *RaftService) GetServers() []entities.ServerInfo {
 	future := rs.raft.GetConfiguration()
@@ -256,14 +251,12 @@ func (rs *RaftService) GetServers() []entities.ServerInfo {
 	for _, server := range future.Configuration().Servers {
 		servers = append(servers, entities.ServerInfo{
 			ID:       string(server.ID),
-			Address:  string(server.Address), 
+			Address:  string(server.Address),
 			IsLeader: string(server.ID) == rs.GetLeaderID(),
 		})
 	}
 	return servers
 }
-
-
 
 // desliga gracefully
 func (rs *RaftService) Shutdown() error {
@@ -271,6 +264,3 @@ func (rs *RaftService) Shutdown() error {
 	future := rs.raft.Shutdown()
 	return future.Error()
 }
-
-
-

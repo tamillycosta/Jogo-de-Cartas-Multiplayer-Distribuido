@@ -67,10 +67,11 @@ func (r *PackageRepository) Delete(id string){
 func (r *PackageRepository) FindById(id string)(*entities.Package, error){
 	var packages entities.Package
 	if err := r.db.Where("id = ?", id).First(&packages).Error; err != nil{
-		if errors.Is(err, gorm.ErrRecordNotFound){ // caso o objeto n exista no banco
+		if errors.Is(err, gorm.ErrRecordNotFound){ 
 			return  nil, nil
 		}
-	return nil, err // caso ocorra erro 
+	return nil, err 
+	
 	}
 	return  &packages, nil 
 }

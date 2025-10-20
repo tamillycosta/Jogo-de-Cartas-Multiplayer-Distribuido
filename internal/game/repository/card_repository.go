@@ -66,10 +66,10 @@ func (r *CardRepository ) Delete(id string){
 func (r *CardRepository ) FindById(id string)(*entities.Card, error){
 	var cards entities.Card
 	if err := r.db.Where("id = ?", id).First(&cards).Error; err != nil{
-		if errors.Is(err, gorm.ErrRecordNotFound){ // caso o objeto n exista no banco
+		if errors.Is(err, gorm.ErrRecordNotFound){
 			return  nil, nil
 		}
-	return nil, err // caso ocorra erro 
+	return nil, err
 	}
 	return  &cards, nil 
 }
@@ -86,3 +86,15 @@ func (r *CardRepository) UpdateCardStatus(playerID, cardID string) error {
 }
 
 
+// FindByPlayerID retorna todas as cartas de um jogador
+func (r *CardRepository) FindByPlayerID(playerID string) ([]*entities.Card, error) {
+	var cards []*entities.Card
+	
+	err := r.db.Where("player_id = ?", playerID).Find(&cards).Error
+	if err != nil {
+		return nil, err
+	}
+	
+
+	return cards, nil
+}

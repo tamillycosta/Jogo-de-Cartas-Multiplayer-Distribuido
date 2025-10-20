@@ -3,6 +3,7 @@ package fms
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
 	"encoding/json"
 	"fmt"
@@ -20,18 +21,19 @@ type GameFSM struct {
 	playerRepository *repository.PlayerRepository
 	packageRepository *repository.PackageRepository
 	cardRepository *repository.CardRepository
-	
+	matchmakingState *matchstate.MatchmakingState
 	// Cache de IDs de requisições processadas (para idempotência)
 	processedRequests map[string]bool
 }
 
 func New(
-	playerRepo *repository.PlayerRepository, packageRepo *repository.PackageRepository,cardRepo *repository.CardRepository,) *GameFSM {
+	playerRepo *repository.PlayerRepository, packageRepo *repository.PackageRepository,cardRepo *repository.CardRepository,matchmakingState *matchstate.MatchmakingState,) *GameFSM {
 	return &GameFSM{
 		playerRepository:        playerRepo,
 		packageRepository:       packageRepo,
 		cardRepository:          cardRepo,
 		processedRequests: make(map[string]bool),
+		matchmakingState: matchmakingState,
 	}
 }
 
@@ -59,45 +61,9 @@ func (f *GameFSM) Apply(logs *raft.Log) interface{} {
 		}
 	}
 
-	// Processa comando
-	var response *comands.ApplyResponse
-	switch cmd.Type {
-	// Players
-	case comands.CommandCreateUser:
-		response = f.applyCreateUser(cmd.Data)
-	case comands.CommandDeleteUser:
-		response = f.applyDeleteUser(cmd.Data)
-	case comands.CommandUpdateUser:
-		response = f.applyUpdateUser(cmd.Data)
 	
-	// Packages
-	case comands.CommandCreatePackage:
-		response = f.applyCreatePackage(cmd.Data)
 
-	case comands.CommandLockPackage:
-		response = f.applyLockPackage(cmd.Data)
-	case comands.CommandOpenPackage:
-		response = f.applyOpenPackage(cmd.Data)
-	
-	// Cards
-	case comands.CommandCreateCard:
-		response = f.applyCreateCard(cmd.Data)
-	case comands.CommandTransferCard:
-		response = f.applyTransferCard(cmd.Data)
-	
-	default:
-		response = &comands.ApplyResponse{
-			Success: false,
-			Error:   fmt.Sprintf("unknown command type: %s", cmd.Type),
-		}
-	}
-
-	// Marca como processado
-	if cmd.RequestID != "" && response.Success {
-		f.processedRequests[cmd.RequestID] = true
-	}
-
-	return response
+	return f.processComands(cmd)
 }
 
 
@@ -126,6 +92,7 @@ func (f *GameFSM) Snapshot() (raft.FSMSnapshot, error) {
 		players:           players,
 		packages:          packages,
 		cards:             cards,
+		matchmakingState: f.matchmakingState,
 		processedRequests: f.cloneProcessedRequests(),
 	}, nil
 }
@@ -141,6 +108,7 @@ func (f *GameFSM) Restore(snapshot io.ReadCloser) error {
 		Packages          []*entities.Package `json:"packages"`
 		Cards             []*entities.Card    `json:"cards"`
 		ProcessedRequests map[string]bool     `json:"processed_requests"`
+		MatchMakingState   *matchstate.MatchmakingState  `json:"matchmaking_state"`
 	}
 
 	if err := json.NewDecoder(snapshot).Decode(&data); err != nil {
@@ -179,6 +147,11 @@ func (f *GameFSM) Restore(snapshot io.ReadCloser) error {
 		}
 	}
 
+	f.matchmakingState = data.MatchMakingState
+	if f.matchmakingState == nil {
+		f.matchmakingState = matchstate.New()
+	}
+
 	f.processedRequests = data.ProcessedRequests
 
 	log.Printf("[FSM] Snapshot restaurado: %d players, %d packages, %d cards",
@@ -192,4 +165,59 @@ func (f *GameFSM) cloneProcessedRequests() map[string]bool {
 		clone[k] = v
 	}
 	return clone
+}
+
+func (f *GameFSM) processComands(cmd comands.Command) interface{} {
+	// Processa comando
+	var response *comands.ApplyResponse
+	switch cmd.Type {
+	// Players
+	case comands.CommandCreateUser:
+		response = f.applyCreateUser(cmd.Data)
+	case comands.CommandDeleteUser:
+		response = f.applyDeleteUser(cmd.Data)
+	case comands.CommandUpdateUser:
+		response = f.applyUpdateUser(cmd.Data)
+	
+	// Packages
+	case comands.CommandCreatePackage:
+		response = f.applyCreatePackage(cmd.Data)
+
+	case comands.CommandLockPackage:
+		response = f.applyLockPackage(cmd.Data)
+	case comands.CommandOpenPackage:
+		response = f.applyOpenPackage(cmd.Data)
+	
+	// Cards
+	case comands.CommandCreateCard:
+		response = f.applyCreateCard(cmd.Data)
+	case comands.CommandTransferCard:
+		response = f.applyTransferCard(cmd.Data)
+	
+
+	// Matchs
+	case comands.CommandJoinQueue:
+		//response = f.applyJoinQueue(cmd.Data)
+	case comands.CommandLeaveQueue:
+	//	response = f.applyLeaveQueue(cmd.Data)
+	case comands.CommandCreateMatch:
+		//response = f.applyCreateMatch(cmd.Data)
+	case comands.CommandUpdateMatch:
+		//response = f.applyUpdateMatch(cmd.Data)
+	case comands.CommandEndMatch:
+		//response = f.applyEndMatch(cmd.Data)
+
+
+	default:
+		response = &comands.ApplyResponse{
+			Success: false,
+			Error:   fmt.Sprintf("unknown command type: %s", cmd.Type),
+		}
+	}
+
+	// Marca como processado
+	if cmd.RequestID != "" && response.Success {
+		f.processedRequests[cmd.RequestID] = true
+	}
+	return response
 }

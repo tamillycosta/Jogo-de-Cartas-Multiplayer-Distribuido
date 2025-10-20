@@ -5,6 +5,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
 	aS "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
+	
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
@@ -26,8 +27,10 @@ type GameServer struct {
 	Auth      *aS.AuthService
 	Package *packageService.PackageService
 	Raft	  *raft.RaftService
+	
 	ApiClient *client.Client
 	SessionManager *session.SessionManager
+	
 	Seeds 	*seedService.SeedService
 }
 
@@ -38,6 +41,7 @@ func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *disco
 		Discovery:  discovery,
 		ApiClient:  apiClient,
 		SessionManager: session.New(),
+		
 	}
 	
 	return gs

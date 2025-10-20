@@ -67,13 +67,11 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	matchState := matchstate.New()
 
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
-	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, matchState, myServerInfo, apiClient )
+	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, matchState, myServerInfo, apiClient)
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
-<<<<<<< HEAD
-	pkgService := packageService.New(packageRepo, cardRepo, apiClient,raftService, gameserver.SessionManager)
-=======
 
->>>>>>>
+	pkgService := packageService.New(packageRepo, cardRepo, apiClient, raftService, gameserver.SessionManager)
+
 	seedSvc := seedService.New(raftService, pkgService)
 
 	gameserver.InitAuth(authService)
@@ -98,11 +96,11 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	packgehandler := packgehandler.New(pkgService, broker)
 
 	match := matchlocal.New(myServerInfo.ID)
-	gameSessionLocal := local.NewGameSessionManager(playerRepo,cardRepo,gameserver.SessionManager,match, broker)
-	matchHandler := matchhandler.New(match,gameSessionLocal,gameserver.SessionManager,broker )
+	gameSessionLocal := local.NewGameSessionManager(playerRepo, cardRepo, gameserver.SessionManager, match, broker)
+	matchHandler := matchhandler.New(match, gameSessionLocal, gameserver.SessionManager, broker)
 
 	// injeta todos os handlers da aplicação para o pub sub
-	handler := handler.New(authHandler, packgehandler,matchHandler)
+	handler := handler.New(authHandler, packgehandler, matchHandler)
 	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionLocal)
 	topics.SetUpTopics(*wbSocket, handler)
 

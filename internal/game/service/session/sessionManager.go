@@ -100,21 +100,3 @@ func (sm *SessionManager) GetSession(playerId string) (*gameEntities.Player, err
 	return session, nil
 }
 
-func (sm *SessionManager) GetPlayerIDByUsername(username string) (string, string) {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-
-	// Busca player por username
-	for playerID, player := range sm.playerSessions {
-		if player.Username == username {
-			// Busca clientID do player
-			for clientID, pID := range sm.clientToPlayer {
-				if pID == playerID {
-					return playerID, clientID
-				}
-			}
-			return playerID, ""
-		}
-	}
-	return "", ""
-}

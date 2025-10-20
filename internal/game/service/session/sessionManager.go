@@ -2,6 +2,8 @@ package session
 
 import (
 	gameEntities "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
+	
+	"errors"
 	"sync"
 )
 
@@ -11,6 +13,7 @@ type SessionManager struct {
 	clientToPlayer map[string]string                 // Mapeia clientID -> playerID para remoção rápida
 	playerSessions map[string]*gameEntities.Player // Mapeia playerID -> *Player para acesso rápido aos dados
 	mu             sync.RWMutex
+	
 }
 
 // New cria uma nova instância do SessionManager.
@@ -18,6 +21,7 @@ func New() *SessionManager {
 	return &SessionManager{
 		clientToPlayer: make(map[string]string),
 		playerSessions: make(map[string]*gameEntities.Player),
+		
 	}
 }
 
@@ -48,6 +52,7 @@ func (sm *SessionManager) RemoveSession(clientID string) bool {
 		// Remove dos dois mapas para manter a consistência
 		delete(sm.playerSessions, playerID)
 		delete(sm.clientToPlayer, clientID)
+
 		return true // Sessão encontrada e removida
 	}
 
@@ -68,4 +73,48 @@ func (sm *SessionManager) IsPlayerLoggedInByUsername(username string) bool {
 		}
 	}
 	return false
+}
+
+// retorna o id do player via id do cliente 
+func (sm *SessionManager) GetPlayerID(clientID string) (string, bool) {
+    sm.mu.RLock()
+    defer sm.mu.RUnlock()
+    
+    session, exists := sm.clientToPlayer[clientID]
+    if !exists {
+        return "", false
+    }
+    return session, true
+}
+
+
+// retorna a sessão completa de um cliente
+func (sm *SessionManager) GetSession(playerId string) (*gameEntities.Player, error) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	
+	session, exists := sm.playerSessions[playerId]
+	if !exists {
+		return nil, errors.New("sessão não encontrada")
+	}
+	return session, nil
+}
+
+func (sm *SessionManager) GetPlayerIDByUsername(username string) (string, string) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	// Busca player por username
+	for playerID, player := range sm.playerSessions {
+		if player.Username == username {
+			// Busca clientID do player
+			for clientID, pID := range sm.clientToPlayer {
+				if pID == playerID {
+					return playerID, clientID
+				}
+			}
+			return playerID, ""
+		}
+	}
+	return "", ""
 }

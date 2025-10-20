@@ -1,16 +1,17 @@
 package websocket
 
 import (
-    "encoding/json"
-    "log"
-    "net/http"
-    "strings"
-    
-    "github.com/google/uuid"
-    "github.com/gorilla/websocket"
-    
-    "Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
-    "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
+	"encoding/json"
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,13 +25,15 @@ type PubSubHandler struct {
     broker   *pubsub.Broker
     handlers map[string]pubsub.HandleTopics
     sessionManager *session.SessionManager
+    gameSessionManager *local.GameSessionManager
 }
 
-func New(broker *pubsub.Broker, sm *session.SessionManager) *PubSubHandler {
+func New(broker *pubsub.Broker, sm *session.SessionManager,   gameSessionManager *local.GameSessionManager) *PubSubHandler {
     return &PubSubHandler{
         broker:   broker,
         handlers: make(map[string]pubsub.HandleTopics),
         sessionManager: sm,
+        gameSessionManager: gameSessionManager,
     }
 }
 
@@ -63,12 +66,33 @@ func (h *PubSubHandler) SetWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func (h *PubSubHandler) handleClientMessages(clientID string, conn *websocket.Conn) {
     defer func() {
-        h.broker.RemoveClient(clientID)
-        h.sessionManager.RemoveSession(clientID)
-        log.Printf("Sessão e cliente removidos para o clientID: %s", clientID)
-        conn.Close()
-    }()
-    
+		log.Printf("🔌 [WebSocket] Cliente desconectando: %s", clientID)
+		
+		// Remove de partidas/fila PRIMEIRO
+		if h.gameSessionManager != nil {
+			h.gameSessionManager.HandleClientDisconnect(clientID)
+		}
+		
+		//  Remove sessão de autenticação
+		if h.sessionManager != nil {
+			removed := h.sessionManager.RemoveSession(clientID)
+			if removed {
+				log.Printf("Sessão de auth removida: %s", clientID)
+			}
+		}
+		
+		//  Remove do broker (unsubscribe de todos os tópicos)
+		if h.broker != nil {
+			h.broker.RemoveClient(clientID)
+			log.Printf("Removido de todos os tópicos: %s", clientID)
+		}
+		
+		
+		conn.Close()
+		
+		log.Printf("[WebSocket] Limpeza completa: %s", clientID)
+	}()
+
     for {
         _, messageBytes, err := conn.ReadMessage()
         if err != nil {

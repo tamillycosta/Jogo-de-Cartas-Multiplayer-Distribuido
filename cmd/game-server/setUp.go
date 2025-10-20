@@ -69,7 +69,11 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
 	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, matchState, myServerInfo, apiClient )
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
+<<<<<<< HEAD
 	pkgService := packageService.New(packageRepo, cardRepo, apiClient,raftService, gameserver.SessionManager)
+=======
+
+>>>>>>>
 	seedSvc := seedService.New(raftService, pkgService)
 
 	gameserver.InitAuth(authService)

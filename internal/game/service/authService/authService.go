@@ -128,6 +128,12 @@ func (as *AuthService) forwardToLeader(username string)error{
 func (as *AuthService) Login(username string, clientID string) (*gameEntities.Player, error) {
 	log.Printf("[AuthService] Tentativa de login para: %s (ClientID: %s)", username, clientID)
 
+	// Verifica se este CLIENTE já tem uma sessão ativa.
+	if as.sessionManager.IsClientLoggedIn(clientID) {
+		log.Printf("[AuthService] Login negado: ClientID %s já tem uma sessão ativa.", clientID)
+		return nil, errors.New("este cliente já está logado (faça logout primeiro)")
+	}
+
 	// PASSO 1: Verificar se o jogador já está logado em outro servidor do cluster
 	for serverID, serverInfo := range as.knownServers {
 		// Não precisa de verificar no próprio servidor, pois isso será feito localmente a seguir

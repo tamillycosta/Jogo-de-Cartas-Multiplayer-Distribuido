@@ -15,9 +15,9 @@ func main() {
 	router := config.SetUp()
 
 	// 1. Inicializa Servidor de jogos
-	gameServer,serverInfo,_ := gameserver.SetUpGame(router)
+	gameServer, gameSessionManager,serverInfo,_ := gameserver.SetUpGame(router)
 	
-	handler := handlers.New(gameServer)
+	handler := handlers.New(gameServer, gameSessionManager)
 	router.StaticFile("/test", "./web/client_test.html") 
 
 	// 2. Inicializa API de comunicação

@@ -11,6 +11,7 @@ import (
 	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
 
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
+	tradeService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/tradeService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ type GameServer struct {
 	Auth      *aS.AuthService
 	Package *packageService.PackageService
 	Raft	  *raft.RaftService
+	Trade     *tradeService.TradeService
 	
 	ApiClient *client.Client
 	SessionManager *session.SessionManager
@@ -70,6 +72,12 @@ func (gs *GameServer) InitSeeds(seedService *seedService.SeedService){
 	gs.Mu.Lock()
 	defer  gs.Mu.Unlock()
 	gs.Seeds = seedService
+}
+
+func (gs *GameServer) InitTrade(tradeService *tradeService.TradeService){
+	gs.Mu.Lock()
+	defer  gs.Mu.Unlock()
+	gs.Trade = tradeService
 }
 
 func (gs *GameServer) GetCurrentServerInfo() *entities.ServerInfo {

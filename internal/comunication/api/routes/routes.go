@@ -27,6 +27,12 @@ import (
 			{
 				packages.POST("open-package", handler.PackageHandler.OpenPackage)
 			}
+
+			trade := v1.Group("/trade")
+			{
+				trade.POST("/execute", handler.TradeHandler.ExecuteTrade)
+			}
+			
 			// Raft ------------------- Gerenciamento do Cluster ------------------
 			
 			raft := v1.Group("/raft")

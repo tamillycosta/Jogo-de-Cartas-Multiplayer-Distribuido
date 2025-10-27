@@ -98,3 +98,18 @@ func (r *CardRepository) FindByPlayerID(playerID string) ([]*entities.Card, erro
 
 	return cards, nil
 }
+
+// UpdateCardOwner troca o proprietário de uma carta
+func (r *CardRepository) UpdateCardOwner(cardID string, newPlayerID string) error {
+    // Note que a entidade Card usa *string para PlayerID
+    var playerIDPtr *string
+    if newPlayerID != "" {
+        playerIDPtr = &newPlayerID
+    }
+
+    return r.db.Model(&entities.Card{}).
+        Where("id = ?", cardID).
+        Updates(map[string]interface{}{
+            "player_id": playerIDPtr,
+        }).Error
+}

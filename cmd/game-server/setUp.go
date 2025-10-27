@@ -18,10 +18,12 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
+	tradeService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/tradeService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 	websocket "Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub/webSocket"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub/webSocket/topics"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	tradehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/tradeHandler"
 	utils "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/util"
 	"fmt"
 	"log"
@@ -71,13 +73,14 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
 
 	pkgService := packageService.New(packageRepo, cardRepo, apiClient, raftService, gameserver.SessionManager)
-
+	tradeSvc := tradeService.New(apiClient, raftService, gameserver.SessionManager)
 	seedSvc := seedService.New(raftService, pkgService)
 
 	gameserver.InitAuth(authService)
 	gameserver.InitRaft(raftService)
 	gameserver.InitPackageSystem(pkgService)
 	gameserver.InitSeeds(seedSvc)
+	gameserver.InitTrade(tradeSvc)
 
 	// BUSCA LEADER DO RAFT (SE FOR O BOOTSTRAP CRIA O CLUSTER)
 	log.Println("Aguardando eleição de líder...")
@@ -98,9 +101,9 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	match := matchlocal.New(myServerInfo.ID)
 	gameSessionLocal := local.NewGameSessionManager(playerRepo, cardRepo, gameserver.SessionManager, match, broker)
 	matchHandler := matchhandler.New(match, gameSessionLocal, gameserver.SessionManager, broker)
-
+	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager)
 	// injeta todos os handlers da aplicação para o pub sub
-	handler := handler.New(authHandler, packgehandler, matchHandler)
+	handler := handler.New(authHandler, packgehandler, matchHandler, tradeHandler)
 	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionLocal)
 	topics.SetUpTopics(*wbSocket, handler)
 

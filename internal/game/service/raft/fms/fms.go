@@ -193,6 +193,8 @@ func (f *GameFSM) processComands(cmd comands.Command) interface{} {
 		response = f.applyCreateCard(cmd.Data)
 	case comands.CommandTransferCard:
 		response = f.applyTransferCard(cmd.Data)
+	case comands.CommandTradeCards:
+		response = f.applyTradeCards(cmd.Data)
 	
 
 	// Matchs

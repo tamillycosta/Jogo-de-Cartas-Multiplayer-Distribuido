@@ -2,6 +2,7 @@ package client
 
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/auth"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/match"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/packages"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/raft"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client/trade"
@@ -16,26 +17,38 @@ import (
 // faz comunicação **server-to-server**
 type Client struct {
 	HttpClient *http.Client
-	timeout    time.Duration
-	AuthInterface *auth.AuthClientInterface
-	RaftInterface *raft.RaftClientInterface
+	AuthInterface  *auth.AuthClientInterface
+	MatchInterface *match.MatchClientInterface
+	RaftInterface  *raft.RaftClientInterface
 	PackageInterface *packages.PackageClientInterface
 	TradeInterface   *trade.TradeClientInterface
 }
 
+func New() *Client {
+	// ✅ CORRIGIDO: Timeout aumentado para operações de jogo
+	httpClient := http.Client{
+		Timeout: 30 * time.Second, // Era muito curto antes!
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 100,
+			IdleConnTimeout:     90 * time.Second,
+			// ✅ Timeouts adicionais para evitar travamentos
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
 
-func New(timeout time.Duration) *Client {
-    client := Client{
-        HttpClient: &http.Client{Timeout: timeout},
-        timeout:    timeout,
-		
-    }
+	client := Client{
+		HttpClient: &httpClient,
+	}
 	client.AuthInterface = auth.New(*client.HttpClient)
 	client.RaftInterface = raft.New(*client.HttpClient)
 	client.PackageInterface = packages.New(*client.HttpClient)
 	client.TradeInterface = trade.New(*client.HttpClient)
-	return &client
+	client.MatchInterface = match.New(*client.HttpClient)
+	return  &client
 }
+
 
 
 //envia uma requisição GET para o endpoint `/api/v1/info`

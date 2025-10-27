@@ -2,10 +2,12 @@ package handlers
 
 import (
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/authHandler"
+	matchhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/matchHandler"
 	packagehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/packageHandler"
 	rafthandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/raft_handler"
 	tradehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/api/handlers/tradeHandler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
+	gamesession "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,15 +20,17 @@ type Handler struct {
 	RaftHandler *rafthandler.RaftHandler
 	PackageHandler *packagehandler.PackageHandler
 	TradeHandler *tradehandler.TradeHandler
+	MatchHandler 	*matchhandler.MatchHandler
 }
 
-func New(gameServer *service.GameServer) *Handler {
+func New(gameServer *service.GameServer, gameSessionManager *gamesession.GameSessionManager ) *Handler {
 	return &Handler{
 		gameServer:  gameServer,
 		AuthHandler: authhandler.New(gameServer),
 		RaftHandler: rafthandler.New(gameServer.Raft),
 		PackageHandler: packagehandler.New(gameServer),
 		TradeHandler: tradehandler.New(gameServer),
+		MatchHandler: matchhandler.New(gameSessionManager, gameSessionManager.GetGlobalMacthService()),
 	}
 }
 

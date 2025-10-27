@@ -81,6 +81,21 @@ func (r *PlayerRepository) FindByUsername(username string)(*entities.Player, err
 }
 
 
+
+// Busca usuário por username
+func (r *PlayerRepository) FindById(id string)(*entities.Player, error){
+	var player entities.Player
+	if err := r.db.Where("id = ?", id).First(&player).Error; err != nil{
+		if errors.Is(err, gorm.ErrRecordNotFound){ // caso o objeto n exista no banco
+			return  nil, nil
+		}
+	return nil, err // caso ocorra erro 
+	}
+	return  &player, nil 
+}
+
+
+
 //Verifica existência de username no banco
 func (r *PlayerRepository) UsernameExists(username string) bool{
 	var count int64

@@ -15,11 +15,13 @@ func main() {
 	router := config.SetUp()
 
 	// 1. Inicializa Servidor de jogos
-	gameServer,serverInfo,_ := gameserver.SetUpGame(router)
+	gameServer, gameSessionManager,serverInfo,_ := gameserver.SetUpGame(router)
 	
-	handler := handlers.New(gameServer)
+	handler := handlers.New(gameServer, gameSessionManager)
+
+	// WARNING: Está setado para teste da troca de cartas, caso queira testar outra funcionalidade deve trocar
 	router.StaticFile("/test_trade", "./web/test_trade.html")
-	// router.StaticFile("/test", "./web/test_trade.html") 
+	// router.StaticFile("/test", "./web/client_test.html")  
 
 	// 2. Inicializa API de comunicação
 	api.SetUpApi(router,serverInfo, handler)

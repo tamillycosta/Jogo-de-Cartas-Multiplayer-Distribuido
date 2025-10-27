@@ -3,123 +3,113 @@ package fms
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 
-	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/fms/match"
 	"encoding/json"
 	"log"
 	"time"
 )
 
 
-
-func (f *GameFSM) applyJoinQueue(data json.RawMessage) *comands.ApplyResponse {
-	var cmd comands.JoinQueueCommand
+func (f *GameFSM) applyJoinGlobalQueue(data json.RawMessage) *comands.ApplyResponse {
+	var cmd comands.JoinGlobalQueueCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	entry := &entities.QueueEntry{
+	entry := &entities.GlobalQueueEntry{
 		PlayerID: cmd.PlayerID,
+		Username: cmd.Username,
 		ServerID: cmd.ServerID,
-		JoinedAt:time.Now(),
+		ClientID: cmd.ClientID,
+		JoinedAt: time.Now(),
 	}
 
-	f.matchmakingState.AddToQueue(entry)
+	f.globalMatchmakingState.AddToGlobalQueue(entry)
 
-	log.Printf("[FSM] Player %s adicionado à fila (servidor: %s) - Fila: %d",
-		cmd.PlayerID, cmd.ServerID, f.matchmakingState.GetQueueSize())
+	log.Printf("[FSM] Player %s adicionado à FILA GLOBAL (servidor: %s) - Fila: %d",
+		cmd.Username, cmd.ServerID, f.globalMatchmakingState.GetGlobalQueueSize())
 
 	return &comands.ApplyResponse{
 		Success: true,
 		Data: map[string]interface{}{
-			"player_id":  cmd.PlayerID,
-			"queue_size": f.matchmakingState.GetQueueSize(),
+			"player_id":        cmd.PlayerID,
+			"global_queue_size": f.globalMatchmakingState.GetGlobalQueueSize(),
 		},
 	}
 }
 
-func (f *GameFSM) applyLeaveQueue(data json.RawMessage) *comands.ApplyResponse {
-	var cmd comands.LeaveQueueCommand
+func (f *GameFSM) applyLeaveGlobalQueue(data json.RawMessage) *comands.ApplyResponse {
+	var cmd comands.LeaveGlobalQueueCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	f.matchmakingState.RemoveFromQueue(cmd.PlayerID)
+	f.globalMatchmakingState.RemoveFromGlobalQueue(cmd.PlayerID)
 
-	log.Printf("[FSM] Player %s removido da fila", cmd.PlayerID)
+	log.Printf("[FSM] Player %s removido da fila global", cmd.PlayerID)
 
 	return &comands.ApplyResponse{Success: true}
 }
 
-func (f *GameFSM) applyCreateMatch(data json.RawMessage) *comands.ApplyResponse {
-	var cmd comands.CreateMatchCommand
+func (f *GameFSM) applyCreateRemoteMatch(data json.RawMessage) *comands.ApplyResponse {
+	var cmd comands.CreateRemoteMatchCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	match := &entities.Match{
-		ID:            cmd.MatchID,
-		Player1ID:     cmd.Player1ID,
-		Player1Server: cmd.Player1Server,
-		Player2ID:     cmd.Player2ID,
-		Player2Server: cmd.Player2Server,
-		HostServer:    cmd.HostServer,
-		IsLocal:       cmd.IsLocal,
-		Status:        "waiting",
-		CreatedAt:     time.Now(),
+	match := &entities.RemoteMatch{
+		ID:              cmd.MatchID,
+		Player1ID:       cmd.Player1ID,
+		Player1Server:   cmd.Player1Server,
+		Player1ClientID: cmd.Player1ClientID,
+		Player2ID:       cmd.Player2ID,
+		Player2Server:   cmd.Player2Server,
+		Player2ClientID: cmd.Player2ClientID,
+		HostServer:      cmd.HostServer,
+		Status:          "waiting",
+		CreatedAt:       time.Now(),
 	}
 
-	f.matchmakingState.AddMatch(match)
-
-	log.Printf("[FSM] Match criado: %s | P1=%s (srv=%s) vs P2=%s (srv=%s) | Host=%s | Local=%v",
-		cmd.MatchID, cmd.Player1ID, cmd.Player1Server,
-		cmd.Player2ID, cmd.Player2Server, cmd.HostServer, cmd.IsLocal)
+	f.globalMatchmakingState.AddRemoteMatch(match)
 
 	return &comands.ApplyResponse{Success: true, Data: match}
 }
 
-func (f *GameFSM) applyUpdateMatch(data json.RawMessage) *comands.ApplyResponse {
-	var cmd comands.UpdateMatchCommand
+func (f *GameFSM) applyUpdateRemoteMatch(data json.RawMessage) *comands.ApplyResponse {
+	var cmd comands.UpdateRemoteMatchCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	success := f.matchmakingState.UpdateMatch(cmd.MatchID, cmd.Status, cmd.NewHost)
+	success := f.globalMatchmakingState.UpdateRemoteMatch(cmd.MatchID, cmd.Status, cmd.NewHost, cmd.WinnerID)
 	if !success {
 		return &comands.ApplyResponse{Success: false, Error: "match not found"}
 	}
 
-	log.Printf("[FSM] Match atualizado: %s -> Status=%s", cmd.MatchID, cmd.Status)
+	log.Printf("[FSM] Match remoto atualizado: %s -> Status=%s", cmd.MatchID, cmd.Status)
 
-	if cmd.NewHost != "" {
-		log.Printf("[FSM] Match %s: Novo host = %s (failover)", cmd.MatchID, cmd.NewHost)
-	}
 
 	return &comands.ApplyResponse{Success: true}
 }
 
-func (f *GameFSM) applyEndMatch(data json.RawMessage) *comands.ApplyResponse {
-	var cmd comands.EndMatchCommand
+func (f *GameFSM) applyEndRemoteMatch(data json.RawMessage) *comands.ApplyResponse {
+	var cmd comands.EndRemoteMatchCommand
 	if err := json.Unmarshal(data, &cmd); err != nil {
 		return &comands.ApplyResponse{Success: false, Error: err.Error()}
 	}
 
-	success := f.matchmakingState.EndMatch(cmd.MatchID, cmd.WinnerID)
+	success := f.globalMatchmakingState.EndRemoteMatch(cmd.MatchID, cmd.WinnerID)
 	if !success {
 		return &comands.ApplyResponse{Success: false, Error: "match not found"}
 	}
 
-	log.Printf("[FSM] Match finalizado: %s | Vencedor=%s | Motivo=%s",
-		cmd.MatchID, cmd.WinnerID, cmd.Reason)
-
-	// TODO: Atualizar estatísticas dos jogadores aqui
-	// f.updatePlayerStats(cmd.WinnerID, cmd.LoserID)
 
 	return &comands.ApplyResponse{Success: true}
 }
 
-func (f *GameFSM) GetMatchmakingState() *matchstate.MatchmakingState {
-    f.mu.RLock()
-    defer f.mu.RUnlock()
-    return f.matchmakingState
+func (f *GameFSM) GetGlobalMatchmakingState() *match.GlobalMatchmakingState {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.globalMatchmakingState
 }

@@ -102,7 +102,7 @@ func (gsm *GameSessionManager) LeaveMatch(matchID, playerID string) error {
 		log.Printf("⚠️ [SessionManager] Partida %s não encontrada", matchID)
 		return errors.New("partida não encontrada")
 	}
-	session.leaveMatch(playerID)
+	session.LeaveMatch(playerID)
 	return nil
 }
 

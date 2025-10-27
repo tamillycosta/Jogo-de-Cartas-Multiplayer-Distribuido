@@ -4,107 +4,204 @@ import (
 	"fmt"
 	"log"
 	"time"
-
+	"strings"
 	"github.com/gorilla/websocket"
 )
 
+type Client struct {
+	conn          *websocket.Conn
+	clientID      string
+	matchID       string
+	name          string
+	port          string
+	currentTurn   string
+	myPlayerID    string
+	
+	turnNumber    int
+	matchStarted  bool
+	matchEnded    bool  // ✅ NOVO: Detecta quando partida terminou
+	winnerID      string
+	winnerName    string
+}
+
 func main() {
-	// Conecta 2 clientes
-	client1 := connectClient("MILLY")
-	client2 := connectClient("MILLY2")
+	fmt.Println("=== TESTE INTELIGENTE DE PARTIDA REMOTA ===")
+
+	client1 := connectClient("MILLY", "8080")
+	client2 := connectClient("MILLY2", "8081")
 
 	time.Sleep(1 * time.Second)
 
-	// Login
 	login(client1, "MILLY")
 	login(client2, "MILLY2")
 
 	time.Sleep(500 * time.Millisecond)
 
-	// Inscreve nos tópicos de resposta
 	subscribe(client1, client1.clientID)
 	subscribe(client2, client2.clientID)
 
-	// Entra na fila
 	fmt.Println("\n=== ENTRANDO NA FILA ===")
 	joinQueue(client1)
 	joinQueue(client2)
 
-	// Aguarda match
-	time.Sleep(4 * time.Second)
-
-	if client1.matchID != "" {
-		fmt.Println("\n=== PARTIDA ENCONTRADA ===")
-		fmt.Printf("Match ID: %s\n", client1.matchID)
-
-		// Inscreve no tópico da partida
-		subscribe(client1, "match."+client1.matchID)
-		subscribe(client2, "match."+client2.matchID)
-
+	// Aguarda match ser criado E iniciado
+	fmt.Println("⏳ Aguardando match...")
+	maxWait := 40
+	for i := 0; i < maxWait; i++ {
 		time.Sleep(1 * time.Second)
-
 		
-		// Aguardar game_update com match_started para ver current_turn
-		time.Sleep(2 * time.Second)
-
-		// Player que começa escolhe carta
-		fmt.Println("\n=== TURNO 1: ESCOLHER CARTAS ===")
-		chooseCard(client1, "0")
-		time.Sleep(1 * time.Second)
-
-		chooseCard(client2, "0")
-		time.Sleep(1 * time.Second)
-
-		// ta funcionando , so fiquei com preguiça de criar o handler da menssagem kkkkk
-		//leave(client1)
-	
-
-
-		fmt.Println("\n=== TURNO 2: ATAQUES ===")
-		attack(client1)
-		time.Sleep(1 * time.Second)
-
+		if client1.matchStarted && client2.matchStarted {
+			fmt.Println("✅ Match iniciado para ambos!")
+			break
+		}
 		
-
-		attack(client2)
-		time.Sleep(1 * time.Second)
-
-		
-		fmt.Println("\n=== FIM DO TESTE ===")
-	} else {
-		fmt.Println("❌ Match não foi criado!")
+		if i%5 == 0 {
+			fmt.Printf("   [%ds] C1 started: %v | C2 started: %v\n", 
+				i, client1.matchStarted, client2.matchStarted)
+		}
 	}
 
+	if !client1.matchStarted || !client2.matchStarted {
+		fmt.Println("❌ Match não iniciou a tempo!")
+		fmt.Printf("   C1: started=%v, matchID=%s\n", client1.matchStarted, client1.matchID)
+		fmt.Printf("   C2: started=%v, matchID=%s\n", client2.matchStarted, client2.matchID)
+		client1.conn.Close()
+		client2.conn.Close()
+		return
+	}
+
+	fmt.Println("\n=== PARTIDA ENCONTRADA! ===")
+	fmt.Printf("Match ID: %s\n", client1.matchID)
+	fmt.Printf("P1 PlayerID: %s\n", client1.myPlayerID)
+	fmt.Printf("P2 PlayerID: %s\n", client2.myPlayerID)
+	fmt.Printf("Turno inicial: %s\n", client1.currentTurn)
+
+	time.Sleep(2 * time.Second)
+
+	fmt.Println("\n=== INICIANDO JOGO ===")
+	
+	// Identifica quem joga primeiro
+	var firstPlayer, secondPlayer *Client
+	if client1.currentTurn == client1.myPlayerID {
+		firstPlayer = client1
+		secondPlayer = client2
+	} else if client2.currentTurn == client2.myPlayerID {
+		firstPlayer = client2
+		secondPlayer = client1
+	} else {
+		fmt.Printf("⚠️ Turno inicial inválido! C1.turn=%s, C2.turn=%s\n", 
+			client1.currentTurn, client2.currentTurn)
+		client1.conn.Close()
+		client2.conn.Close()
+		return
+	}
+
+	fmt.Printf("[%s] É o primeiro a jogar!\n", firstPlayer.name)
+	
+	// ===== TURNO 1: Primeiro jogador escolhe carta =====
+	fmt.Printf("\n[TURNO 1] %s escolhendo carta...\n", firstPlayer.name)
+	chooseCard(firstPlayer, "0")
+	time.Sleep(3 * time.Second)
+
+	// ===== TURNO 2: Segundo jogador escolhe carta =====
+	fmt.Printf("\n[TURNO 2] %s escolhendo carta...\n", secondPlayer.name)
+	chooseCard(secondPlayer, "0")
+	time.Sleep(3 * time.Second)
+
+	// ✅ VERIFICA SE PARTIDA JÁ TERMINOU (não deveria neste ponto)
+	if firstPlayer.matchEnded || secondPlayer.matchEnded {
+		fmt.Println("\n⚠️ Partida terminou inesperadamente após escolha de cartas")
+		printFinalResults(client1, client2)
+		client1.conn.Close()
+		client2.conn.Close()
+		return
+	}
+
+	// ===== TURNO 3: Primeiro jogador ataca =====
+	fmt.Printf("\n[TURNO 3] %s atacando...\n", firstPlayer.name)
+	attack(firstPlayer)
+	
+	// ✅ Aguarda até que AMBOS recebam notificação de fim de partida OU timeout
+	fmt.Println("\n⏳ Aguardando finalização da partida...")
+	waitForMatchEnd := 20 // 10 segundos para sincronizar
+	for i := 0; i < waitForMatchEnd; i++ {
+		time.Sleep(1 * time.Second)
+		
+		if firstPlayer.matchEnded && secondPlayer.matchEnded {
+			fmt.Println("✅ Ambos jogadores receberam notificação de fim!")
+			break
+		}
+		
+		if i == waitForMatchEnd-1 {
+			fmt.Printf("⚠️ Timeout! C1 ended: %v | C2 ended: %v\n", 
+				firstPlayer.matchEnded, secondPlayer.matchEnded)
+		}
+	}
+
+	// ===== RESULTADO FINAL =====
+	fmt.Println("\n" + strings.Repeat("=", 50))
+	fmt.Println("           RESULTADO FINAL")
+	fmt.Println(strings.Repeat("=", 50))
+	printFinalResults(client1, client2)
+	
+	// ✅ Aguarda antes de desconectar
+	time.Sleep(3 * time.Second)
+
+	fmt.Println("\n=== TESTE CONCLUÍDO ===")
 	client1.conn.Close()
 	client2.conn.Close()
 }
 
-type Client struct {
-	conn     *websocket.Conn
-	clientID string
-	matchID  string
-	name     string
+func printFinalResults(c1, c2 *Client) {
+	fmt.Printf("\n📊 Cliente 1 (%s):\n", c1.name)
+	fmt.Printf("   Match Started: %v\n", c1.matchStarted)
+	fmt.Printf("   Match Ended: %v\n", c1.matchEnded)
+	if c1.winnerID != "" {
+		fmt.Printf("   Vencedor: %s (%s)\n", c1.winnerName, c1.winnerID)
+	}
+	
+	fmt.Printf("\n📊 Cliente 2 (%s):\n", c2.name)
+	fmt.Printf("   Match Started: %v\n", c2.matchStarted)
+	fmt.Printf("   Match Ended: %v\n", c2.matchEnded)
+	if c2.winnerID != "" {
+		fmt.Printf("   Vencedor: %s (%s)\n", c2.winnerName, c2.winnerID)
+	}
+	
+	// Verifica consistência
+	if c1.matchEnded && c2.matchEnded {
+		if c1.winnerID == c2.winnerID {
+			fmt.Printf("\n✅ RESULTADO CONSISTENTE! Vencedor: %s\n", c1.winnerName)
+		} else {
+			fmt.Printf("\n❌ RESULTADO INCONSISTENTE!\n")
+			fmt.Printf("   C1 vê vencedor: %s\n", c1.winnerName)
+			fmt.Printf("   C2 vê vencedor: %s\n", c2.winnerName)
+		}
+	} else {
+		fmt.Println("\n⚠️ Nem todos os clientes receberam fim de partida")
+	}
 }
 
-func connectClient(name string) *Client {
-	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ws", nil)
+func connectClient(name, port string) *Client {
+	url := fmt.Sprintf("ws://localhost:%s/ws", port)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		log.Fatal("Erro ao conectar:", err)
 	}
 
 	client := &Client{
-		conn: conn,
-		name: name,
+		conn:         conn,
+		name:         name,
+		port:         port,
+		matchStarted: false,
+		matchEnded:   false,
 	}
 
-	// Recebe mensagem de conexão
 	var connMsg map[string]interface{}
 	conn.ReadJSON(&connMsg)
 	client.clientID = connMsg["client_id"].(string)
 
-	fmt.Printf(" %s conectado | ClientID: %s\n", name, client.clientID)
+	fmt.Printf("✅ %s conectado no servidor %s | ClientID: %s\n", name, port, client.clientID)
 
-	// Goroutine para receber mensagens
 	go client.receiveMessages()
 
 	return client
@@ -123,66 +220,84 @@ func (c *Client) receiveMessages() {
 
 		switch msgType {
 		case "queue_joined":
-			queueSize := msg["queue_size"]
-			fmt.Printf("[%s] Entrou na fila | Tamanho: %.0f\n", c.name, queueSize)
+			fmt.Printf("[%s] Entrou na fila\n", c.name)
 
 		case "match_found":
 			matchID, _ := msg["match_id"].(string)
-			topic, _ := msg["topic"].(string)
-			opponent, _ := msg["opponent"].(string)
-			
 			c.matchID = matchID
 			
-			fmt.Printf("[%s] Match encontrado!\n", c.name)
-			fmt.Printf("   Match ID: %s\n", matchID)
-			fmt.Printf("   Oponente: %s\n", opponent)
-			fmt.Printf("   Tópico: %s\n", topic)
-			
-			// Auto-subscribe
-			c.subscribeToTopic(topic)
-			fmt.Printf(" [%s] Auto-inscrito em: %s\n", c.name, topic)
-			
-			// Mostra deck
-			if deck, ok := msg["your_deck"].([]interface{}); ok {
-				fmt.Printf(" [%s] Seu deck (%d cartas):\n", c.name, len(deck))
-				for _, card := range deck {
-					cardMap := card.(map[string]interface{})
-					fmt.Printf("   [%v] %s (Power: %v, HP: %v)\n", 
-						cardMap["index"], cardMap["name"], 
-						cardMap["power"], cardMap["health"])
-				}
+			if playerID, ok := msg["player_id"].(string); ok && playerID != "" {
+				c.myPlayerID = playerID
+				fmt.Printf("✅ [%s] PlayerID obtido: %s\n", c.name, playerID)
 			}
+			
+			fmt.Printf("[%s] Match encontrado! ID: %s\n", c.name, matchID)
+
+			if deck, ok := msg["your_deck"].([]interface{}); ok && len(deck) > 0 {
+				fmt.Printf("[%s] Deck: %d cartas\n", c.name, len(deck))
+			}
+
+			c.subscribeToTopic("match." + matchID)
 
 		case "game_update":
 			eventType, _ := msg["event_type"].(string)
-			fmt.Printf("[%s] Game Update: %s\n", c.name, eventType)
 
-			if eventType == "match_started" {
-				gameState := msg["game_state"].(map[string]interface{})
-				currentTurn := gameState["current_turn"].(string)
-				fmt.Printf("[%s] Partida INICIADA! Current Turn: %s\n", c.name, currentTurn)
-			}
+			if gameState, ok := msg["game_state"].(map[string]interface{}); ok {
+				// Extrai playerID se ainda não tiver
+				if c.myPlayerID == "" {
+					if localPlayer, ok := gameState["local_player"].(map[string]interface{}); ok {
+						if playerID, ok := localPlayer["id"].(string); ok && playerID != "" {
+							c.myPlayerID = playerID
+							fmt.Printf("✅ [%s] PlayerID obtido (backup): %s\n", c.name, playerID)
+						}
+					}
+				}
 
-			if eventType == "action_performed" {
-				gameState := msg["game_state"].(map[string]interface{})
-				currentTurn, _ := gameState["current_turn"].(string)
-				turnNum, _ := gameState["turn_number"].(float64)
-				fmt.Printf("   Turn #%.0f | Current: %s\n", turnNum, currentTurn)
-			}
+				// Atualiza turno atual
+				if currentTurn, ok := gameState["current_turn"].(string); ok {
+					c.currentTurn = currentTurn
+				}
 
-			if eventType == "match_ended" {
-				fmt.Printf("[%s] Partida FINALIZADA!\n", c.name)
-				
-			
+				// Atualiza número do turno
+				if turnNum, ok := gameState["turn_number"].(float64); ok {
+					c.turnNumber = int(turnNum)
+				}
+
+				// ✅ CRÍTICO: Marca partida como iniciada
+				if eventType == "match_started" {
+					c.matchStarted = true
+					fmt.Printf("🎮 [%s] Partida INICIADA! Turn: %s\n", c.name, c.currentTurn)
+				}
+
+				// ✅ NOVO: Detecta fim de partida
+				if eventType == "match_ended" {
+					c.matchEnded = true
+					
+					// Extrai informações do vencedor
+					if winnerID, ok := gameState["winner_id"].(string); ok {
+						c.winnerID = winnerID
+					}
+					if winnerName, ok := gameState["winner_username"].(string); ok {
+						c.winnerName = winnerName
+					}
+					
+					fmt.Printf("🏁 [%s] PARTIDA FINALIZADA! Vencedor: %s\n", c.name, c.winnerName)
+					return
+				}
+
+				isMyTurn := c.currentTurn == c.myPlayerID
+				turnIcon := "⏸️"
+				if isMyTurn {
+					turnIcon = "▶️"
+				}
+
+				fmt.Printf("%s [%s] %s | Turn: %d | MyTurn: %v\n",
+					turnIcon, c.name, eventType, c.turnNumber, isMyTurn)
 			}
 
 		case "error":
 			errorMsg, _ := msg["error"].(string)
-			fmt.Printf("[%s] Erro: %s\n", c.name, errorMsg)
-
-		case "subscribed":
-			topic, _ := msg["topic"].(string)
-			fmt.Printf(" [%s] Inscrito em: %s\n", c.name, topic)
+			fmt.Printf("❌ [%s] Erro: %s\n", c.name, errorMsg)
 		}
 	}
 }
@@ -204,7 +319,6 @@ func login(c *Client, username string) {
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("[%s] Login enviado\n", c.name)
 }
 
 func subscribe(c *Client, topic string) {
@@ -222,7 +336,6 @@ func joinQueue(c *Client) {
 		"data":  map[string]interface{}{},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("🎮 [%s] Entrando na fila...\n", c.name)
 }
 
 func chooseCard(c *Client, cardIndex string) {
@@ -235,7 +348,7 @@ func chooseCard(c *Client, cardIndex string) {
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("[%s] Escolhendo carta %s\n", c.name, cardIndex)
+	fmt.Printf("📤 [%s] Carta %s escolhida\n", c.name, cardIndex)
 }
 
 func attack(c *Client) {
@@ -248,19 +361,17 @@ func attack(c *Client) {
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("[%s] Atacando!\n", c.name)
+	fmt.Printf("📤 [%s] Ataque enviado\n", c.name)
 }
 
-
-func leave(c *Client){
+func leaveMatch(c *Client) {
 	msg := map[string]interface{}{
 		"type":  "publish",
-		"topic": "match.surrender",
+		"topic": "match.leave_match",
 		"data": map[string]interface{}{
-			"match_id":         c.matchID,
-			"attacker_card_id": "current",
+			"match_id": c.matchID,
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("[%s] Desistindo!\n", c.name)
+	fmt.Printf("📤 [%s] Leave enviado\n", c.name)
 }

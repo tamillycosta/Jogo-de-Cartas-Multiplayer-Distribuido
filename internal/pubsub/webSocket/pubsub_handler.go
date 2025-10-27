@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
+	gamesession "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 )
@@ -25,10 +25,10 @@ type PubSubHandler struct {
     broker   *pubsub.Broker
     handlers map[string]pubsub.HandleTopics
     sessionManager *session.SessionManager
-    gameSessionManager *local.GameSessionManager
+    gameSessionManager *gamesession.GameSessionManager
 }
 
-func New(broker *pubsub.Broker, sm *session.SessionManager,   gameSessionManager *local.GameSessionManager) *PubSubHandler {
+func New(broker *pubsub.Broker, sm *session.SessionManager,   gameSessionManager *gamesession.GameSessionManager) *PubSubHandler {
     return &PubSubHandler{
         broker:   broker,
         handlers: make(map[string]pubsub.HandleTopics),

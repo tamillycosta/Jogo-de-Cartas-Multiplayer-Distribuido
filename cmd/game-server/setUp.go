@@ -12,8 +12,10 @@ import (
 	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
-	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
+	gamesession "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession"
+	
+
+	matchglobal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_global"
 	matchlocal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_local"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
@@ -44,7 +46,7 @@ func SetUpServerBaseConfigs() *entities.ServerInfo {
 	return myServerInfo
 }
 
-func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error) {
+func SetUpGame(router *gin.Engine) (*con.GameServer,*gamesession.GameSessionManager,*entities.ServerInfo, error) {
 
 	// ---------- SETA CONFUGURAÇÕES BASICAS PARA SERVIDOR P2P -----------
 	myServerInfo := SetUpServerBaseConfigs()
@@ -56,7 +58,7 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	}
 	log.Printf("%d servidores conhecidos", len(discovery.KnownServers))
 
-	apiClient := client.New(5 * time.Second)
+	apiClient := client.New()
 	gameserver := con.New(myServerInfo, apiClient, discovery)
 
 	// Inicializa banco de dados e repositório
@@ -66,14 +68,14 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	cardRepo := repository.NewCardRepository(&db)
 
 	// MatchState
-	matchState := matchstate.New()
+	
 
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
-	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, matchState, myServerInfo, apiClient)
+	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, myServerInfo, apiClient)
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
-
 	pkgService := packageService.New(packageRepo, cardRepo, apiClient, raftService, gameserver.SessionManager)
 	tradeSvc := tradeService.New(apiClient, raftService, gameserver.SessionManager)
+
 	seedSvc := seedService.New(raftService, pkgService)
 
 	gameserver.InitAuth(authService)
@@ -98,13 +100,15 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 	authHandler := authhandler.New(authService, broker)
 	packgehandler := packgehandler.New(pkgService, broker)
 
-	match := matchlocal.New(myServerInfo.ID)
-	gameSessionLocal := local.NewGameSessionManager(playerRepo, cardRepo, gameserver.SessionManager, match, broker)
-	matchHandler := matchhandler.New(match, gameSessionLocal, gameserver.SessionManager, broker)
 	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager)
+	localMatchmaking := matchlocal.New(myServerInfo.ID, raftService)
+	globalMatchmaking := matchglobal.New(raftService,raftService.Fsm, apiClient, myServerInfo.Address)
+	gameSessionManager := gamesession.New(playerRepo,cardRepo,gameserver.SessionManager,localMatchmaking,globalMatchmaking,broker,myServerInfo.Address,apiClient,raftService)
+	matchHandler := matchhandler.New(localMatchmaking, gameSessionManager, gameserver.SessionManager, broker)
+
 	// injeta todos os handlers da aplicação para o pub sub
 	handler := handler.New(authHandler, packgehandler, matchHandler, tradeHandler)
-	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionLocal)
+	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionManager)
 	topics.SetUpTopics(*wbSocket, handler)
 
 	//  Rota WebSocket (cliente -> servidor)
@@ -122,5 +126,5 @@ func SetUpGame(router *gin.Engine) (*con.GameServer, *entities.ServerInfo, error
 
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	return gameserver, myServerInfo, nil
+	return gameserver,gameSessionManager, myServerInfo, nil
 }

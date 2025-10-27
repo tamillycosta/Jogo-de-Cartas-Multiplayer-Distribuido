@@ -5,8 +5,8 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/interfaces"
 	aS "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/authService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
-	
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
+
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	seedService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/seed"
 
@@ -29,23 +29,21 @@ type GameServer struct {
 	Package *packageService.PackageService
 	Raft	  *raft.RaftService
 	Trade     *tradeService.TradeService
-	
 	ApiClient *client.Client
+
 	SessionManager *session.SessionManager
-	
-	Seeds 	*seedService.SeedService
+	Seeds *seedService.SeedService
 }
 
 func New(myInfo *entities.ServerInfo, apiClient *client.Client, discovery *discovery.Discovery) *GameServer {
 	gs := &GameServer{
-		MyInfo:     myInfo,
-		StartTime:  time.Now(),
-		Discovery:  discovery,
-		ApiClient:  apiClient,
+		MyInfo:         myInfo,
+		StartTime:      time.Now(),
+		Discovery:      discovery,
+		ApiClient:      apiClient,
 		SessionManager: session.New(),
-		
 	}
-	
+
 	return gs
 }
 
@@ -56,21 +54,21 @@ func (gs *GameServer) InitAuth(authService *aS.AuthService) {
 	gs.Auth = authService
 }
 
-func (gs *GameServer) InitRaft(raftService *raft.RaftService){
+func (gs *GameServer) InitRaft(raftService *raft.RaftService) {
 	gs.Mu.Lock()
-	defer  gs.Mu.Unlock()
+	defer gs.Mu.Unlock()
 	gs.Raft = raftService
 }
 
-func (gs *GameServer) InitPackageSystem(packageService *packageService.PackageService){
+func (gs *GameServer) InitPackageSystem(packageService *packageService.PackageService) {
 	gs.Mu.Lock()
-	defer  gs.Mu.Unlock()
+	defer gs.Mu.Unlock()
 	gs.Package = packageService
 }
 
-func (gs *GameServer) InitSeeds(seedService *seedService.SeedService){
+func (gs *GameServer) InitSeeds(seedService *seedService.SeedService) {
 	gs.Mu.Lock()
-	defer  gs.Mu.Unlock()
+	defer gs.Mu.Unlock()
 	gs.Seeds = seedService
 }
 

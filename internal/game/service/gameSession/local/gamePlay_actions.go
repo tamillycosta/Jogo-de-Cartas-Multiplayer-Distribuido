@@ -1,16 +1,17 @@
 package local
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/aplication/usecases"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	"log"
 
 	shared "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 )
 
-// PROCESSA UMA JOGADA NA PARTIDA 
+// PROCESSA UMA JOGADA NA PARTIDA
 // ESCOLHER CARTA
 // SAIR DA PARTIDA
-// ATACAR 
+// ATACAR
 func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameAction) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -64,7 +65,7 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 			
 		case ACTION_LEAVE_MATCH:
 			log.Printf("%s desistiu", player.Username)
-			s.leaveMatch(playerID)
+			s.LeaveMatch(playerID)
 			
 		default:
 			log.Printf("Ação inválida: %s", action.Type)
@@ -170,7 +171,7 @@ func (s *LocalGameSession) attack(player, opponent *entities.GamePlayer, action 
 		defenderCard.Health = 0
 		opponent.Life -= 1
 	
-		s.RestoreCardsHp()
+		usecases.RestoreCardsHp(player,opponent)
 		
 		player.CurrentCard = nil
 		opponent.CurrentCard = nil
@@ -183,7 +184,7 @@ func (s *LocalGameSession) attack(player, opponent *entities.GamePlayer, action 
 }
 
 // DESISTIR
-func (s *LocalGameSession) leaveMatch(playerID string) {
+func (s *LocalGameSession) LeaveMatch(playerID string) {
 	player := s.getPlayer(playerID)
 	opponent := s.getOpponent(playerID)
 	

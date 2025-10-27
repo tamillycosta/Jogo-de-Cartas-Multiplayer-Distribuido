@@ -3,9 +3,10 @@ package raft
 import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
-	matchstate "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/matchState"
+
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/fms"
+
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/trasport"
 
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
@@ -25,7 +26,7 @@ import (
 // gerencia o cluster Raft usando HTTP para comunicação
 type RaftService struct {
 	raft      *raft.Raft
-	fsm       *fms.GameFSM
+	Fsm       *fms.GameFSM
 	transport *trasport.HTTPTransport
 	config    *RaftConfig
 	ApiClient *client.Client
@@ -40,7 +41,7 @@ type RaftConfig struct {
 
 func New(config *RaftConfig, fsm *fms.GameFSM, client *client.Client) (*RaftService, error) {
 	rs := &RaftService{
-		fsm:       fsm,
+		Fsm:       fsm,
 		config:    config,
 		ApiClient: client,
 	}
@@ -53,7 +54,7 @@ func New(config *RaftConfig, fsm *fms.GameFSM, client *client.Client) (*RaftServ
 }
 
 // chamado no SetUpGameServer
-func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *repository.PackageRepository, cardRepository *repository.CardRepository, matchState *matchstate.MatchmakingState, myServerInfo *entities.ServerInfo, client *client.Client) (*RaftService, error) {
+func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *repository.PackageRepository, cardRepository *repository.CardRepository, myServerInfo *entities.ServerInfo, client *client.Client) (*RaftService, error) {
 	httpAddr := fmt.Sprintf("http://%s:%d", myServerInfo.Address, myServerInfo.Port)
 	raftDir := filepath.Join("./data", myServerInfo.ID, "raft")
 	bootstrap := util.GetEnvBool("RAFT_BOOTSTRAP", false)
@@ -65,8 +66,8 @@ func InitRaft(playerRepository *repository.PlayerRepository, packageRepository *
 		RaftDir:   raftDir,
 		Bootstrap: bootstrap,
 	}
-	fsm := fms.New(playerRepository, packageRepository, cardRepository, matchState)
-	return New(raftConfig, fsm, client)
+	Fsm := fms.New(playerRepository, packageRepository, cardRepository)
+	return New(raftConfig, Fsm, client)
 
 }
 
@@ -109,7 +110,7 @@ func (rs *RaftService) setupRaft() error {
 	rs.transport = transport
 
 	// Cria instância do Raft
-	ra, err := raft.NewRaft(raftConfig, rs.fsm, logStore, stableStore, snapshotStore, transport)
+	ra, err := raft.NewRaft(raftConfig, rs.Fsm, logStore, stableStore, snapshotStore, transport)
 	if err != nil {
 		return fmt.Errorf("failed to create raft: %v", err)
 	}

@@ -56,7 +56,7 @@ func (s *SeedService) RunSeeds() {
 // cria pacotes iniciais
 // quantidade inicial de 100 pacotes 
 func (s *SeedService) createInitialPackages() {
-	const initialPackageCount = 100 
+	const initialPackageCount = 10
 	
 	log.Printf("[Seeds] Criando %d pacotes iniciais...", initialPackageCount)
 	
@@ -95,7 +95,7 @@ func (s *SeedService) CreatePackagesIfNeeded(allPackages []*entities.Package) {
 		return
 	}
 	
-	const minPackages = 50
+	const minPackages = 10
 	
 	if len(available) < minPackages {
 		toCreate := minPackages - len(available)

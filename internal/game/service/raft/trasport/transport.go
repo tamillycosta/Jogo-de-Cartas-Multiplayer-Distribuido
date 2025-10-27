@@ -1,8 +1,5 @@
 package trasport
 
-
-
-
 import (
 	"bytes"
 	"encoding/json"
@@ -14,175 +11,119 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-// HTTPTransport implementa raft.Transport usando HTTP REST 
-// a biblioteca padrão do hashicorp/raft é por tcp então é preciso impelemtar esta estrutura para
-// comunicação via rest
+// HTTPTransport implementa raft.Transport usando HTTP REST
 type HTTPTransport struct {
-	localAddr  raft.ServerAddress
+	httpAddr   string
 	httpClient *http.Client
-	consumer   chan raft.RPC
+	consumer   chan raft.RPC 
 }
 
-func New(bindAddr string, timeout time.Duration) *HTTPTransport {
+func New(httpAddr string, timeout time.Duration) *HTTPTransport {
 	return &HTTPTransport{
-		localAddr: raft.ServerAddress(bindAddr),
+		httpAddr: httpAddr,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		consumer: make(chan raft.RPC, 128),
+		consumer: make(chan raft.RPC, 256), 
 	}
 }
 
-// retorna canal para receber RPCs
-func (h *HTTPTransport) Consumer() <-chan raft.RPC {
-	return h.consumer
+
+func (t *HTTPTransport) AppendEntriesPipeline(id raft.ServerID, target raft.ServerAddress) (raft.AppendPipeline, error) {
+	return &httpPipeline{
+		transport:  t,
+		target:     target,
+		doneCh:     make(chan raft.AppendFuture, 128),
+		shutdownCh: make(chan struct{}),
+		closed:     false,
+	}, nil
 }
 
-// LocalAddr retorna endereço local 
-func (h *HTTPTransport) LocalAddr() raft.ServerAddress {
-	return h.localAddr
-}
 
-// envia logs para os servidores  de forma sincorna
-// um log(requsição) apos o outro 
-func (h *HTTPTransport) AppendEntries(
-	id raft.ServerID,
-	target raft.ServerAddress,
-	args *raft.AppendEntriesRequest,
-	resp *raft.AppendEntriesResponse,
-) error {
+// ---------------------- implementa rotas http para ações  base da lib raft ----------------------
+
+func (t *HTTPTransport) AppendEntries(id raft.ServerID, target raft.ServerAddress, args *raft.AppendEntriesRequest, resp *raft.AppendEntriesResponse) error {
 	url := fmt.Sprintf("%s/api/v1/raft/append-entries", target)
-	return h.sendRPC(url, args, resp)
+	return t.sendRPC(url, args, resp)
 }
 
-// envia requisição de voto via HTTP POST
-func (h *HTTPTransport) RequestVote(
-	id raft.ServerID,
-	target raft.ServerAddress,
-	args *raft.RequestVoteRequest,
-	resp *raft.RequestVoteResponse,
-) error {
+
+func (t *HTTPTransport) RequestVote(id raft.ServerID, target raft.ServerAddress, args *raft.RequestVoteRequest, resp *raft.RequestVoteResponse) error {
 	url := fmt.Sprintf("%s/api/v1/raft/request-vote", target)
-	return h.sendRPC(url, args, resp)
+	return t.sendRPC(url, args, resp)
 }
 
-// envia snapshot via HTTP POST
-// método usado quando o líder precisa enviar o snapshot atual para um seguidor desatualizado
-func (h *HTTPTransport) InstallSnapshot(
-	id raft.ServerID,
-	target raft.ServerAddress,
-	args *raft.InstallSnapshotRequest,
-	resp *raft.InstallSnapshotResponse,
-	data io.Reader,
-) error {
-	snapshotData, err := io.ReadAll(data)
+
+func (t *HTTPTransport) InstallSnapshot(id raft.ServerID, target raft.ServerAddress, args *raft.InstallSnapshotRequest, resp *raft.InstallSnapshotResponse, data io.Reader) error {
+	url := fmt.Sprintf("%s/api/v1/raft/install-snapshot", target)
+	
+	body := &bytes.Buffer{}
+	body.Write([]byte(fmt.Sprintf("%v", args)))
+	
+	httpResp, err := t.httpClient.Post(url, "application/octet-stream", body)
 	if err != nil {
 		return err
 	}
+	defer httpResp.Body.Close()
 
-	payload := struct {
-		*raft.InstallSnapshotRequest
-		Data []byte `json:"data"`
-	}{
-		InstallSnapshotRequest: args,
-		Data:                   snapshotData,
+	if httpResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("snapshot rejected: %d", httpResp.StatusCode)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/raft/install-snapshot", target)
-	return h.sendRPC(url, payload, resp)
+	return json.NewDecoder(httpResp.Body).Decode(resp)
 }
 
-
-// define handler para heartbeats
-func (h *HTTPTransport) SetHeartbeatHandler(cb func(rpc raft.RPC)) {
-	// Heartbeats são tratados via AppendEntries então n precisa de uma rota especifica
-}
-
-
-// 
-func (h *HTTPTransport) TimeoutNow(
-	id raft.ServerID,
-	target raft.ServerAddress,
-	args *raft.TimeoutNowRequest,
-	resp *raft.TimeoutNowResponse,
-) error {
+func (t *HTTPTransport) TimeoutNow(id raft.ServerID, target raft.ServerAddress, args *raft.TimeoutNowRequest, resp *raft.TimeoutNowResponse) error {
 	url := fmt.Sprintf("%s/api/v1/raft/timeout-now", target)
-	return h.sendRPC(url, args, resp)
+	return t.sendRPC(url, args, resp)
 }
 
 
+//----------------- impelmentados pela obrição da lib ----------------
+
+func (t *HTTPTransport) EncodePeer(id raft.ServerID, addr raft.ServerAddress) []byte {
+	return []byte(addr)
+}
+
+func (t *HTTPTransport) DecodePeer(buf []byte) raft.ServerAddress {
+	return raft.ServerAddress(buf)
+}
 
 
+func (t *HTTPTransport) SetHeartbeatHandler(cb func(rpc raft.RPC)) {
+	// Não implementado
+}
 
 
-// envia uma chamada RPC via HTTP 
-// (rpcs são chamadas remota de função — um servidor chama função em outro )
-func (h *HTTPTransport) sendRPC(url string, request, response interface{}) error {
-	jsonData, err := json.Marshal(request)
+//  envia uma chamada RPC via HTTP
+func (t *HTTPTransport) sendRPC(url string, req interface{}, resp interface{}) error {
+	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := h.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	httpResp, err := t.httpClient.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
-		return fmt.Errorf("http request failed: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer httpResp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("http error %d: %s", resp.StatusCode, string(body))
+	if httpResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(httpResp.Body)
+		return fmt.Errorf("request failed (%d): %s", httpResp.StatusCode, string(body))
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(response); err != nil {
+	if err := json.NewDecoder(httpResp.Body).Decode(resp); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return nil
 }
 
-
-//  cria um pipeline para replicação otimizada 
-// Permite enviar múltiplas(de forma assincrona) requsiões de envio de logs sem aguardar resposta individual
-func (h *HTTPTransport) AppendEntriesPipeline(id raft.ServerID,target raft.ServerAddress) (raft.AppendPipeline, error) {
-	return &httpPipeline{
-		transport: h,
-		target:    target,
-		doneCh:    make(chan raft.AppendFuture, 128),
-	}, nil
-}
-
-
-
-
-
-
-
-
-
-// ------------------- Auxiliares -----------
-
-
-// EncodePeer codifica endereço do peer
-func (h *HTTPTransport) EncodePeer(id raft.ServerID, addr raft.ServerAddress) []byte {
-	return []byte(addr)
-}
-
-// DecodePeer decodifica endereço do peer
-func (h *HTTPTransport) DecodePeer(buf []byte) raft.ServerAddress {
-	return raft.ServerAddress(buf)
-}
-
-func (h *HTTPTransport) Close() error {
-	close(h.consumer)
-	return nil
-}
-
-//-------------- Handlers para rotas http para transporte ----------
-// talvez seja bom seprar em outro arquivo?
+// ---------------------------- HANDLERS PARA ROTAS HTTP -----------------
 
 // processa AppendEntries recebido via HTTP
-func (h *HTTPTransport) HandleAppendEntries(req *raft.AppendEntriesRequest) (*raft.AppendEntriesResponse, error) {
+func (t *HTTPTransport) HandleAppendEntries(req *raft.AppendEntriesRequest) (*raft.AppendEntriesResponse, error) {
 	respCh := make(chan raft.RPCResponse, 1)
 
 	rpc := raft.RPC{
@@ -192,7 +133,7 @@ func (h *HTTPTransport) HandleAppendEntries(req *raft.AppendEntriesRequest) (*ra
 
 	// Envia para consumer (Raft processa)
 	select {
-	case h.consumer <- rpc:
+	case t.consumer <- rpc:
 	case <-time.After(5 * time.Second):
 		return nil, fmt.Errorf("timeout sending to consumer")
 	}
@@ -209,9 +150,8 @@ func (h *HTTPTransport) HandleAppendEntries(req *raft.AppendEntriesRequest) (*ra
 	}
 }
 
-
-//  processa RequestVote recebido via HTTP
-func (h *HTTPTransport) HandleRequestVote(req *raft.RequestVoteRequest) (*raft.RequestVoteResponse, error) {
+// processa RequestVote recebido via HTTP
+func (t *HTTPTransport) HandleRequestVote(req *raft.RequestVoteRequest) (*raft.RequestVoteResponse, error) {
 	respCh := make(chan raft.RPCResponse, 1)
 
 	rpc := raft.RPC{
@@ -220,7 +160,7 @@ func (h *HTTPTransport) HandleRequestVote(req *raft.RequestVoteRequest) (*raft.R
 	}
 
 	select {
-	case h.consumer <- rpc:
+	case t.consumer <- rpc:
 	case <-time.After(5 * time.Second):
 		return nil, fmt.Errorf("timeout sending to consumer")
 	}
@@ -236,9 +176,8 @@ func (h *HTTPTransport) HandleRequestVote(req *raft.RequestVoteRequest) (*raft.R
 	}
 }
 
-
 // processa InstallSnapshot recebido via HTTP
-func (h *HTTPTransport) HandleInstallSnapshot(req struct {
+func (t *HTTPTransport) HandleInstallSnapshot(req struct {
 	*raft.InstallSnapshotRequest
 	Data []byte `json:"data"`
 }) (*raft.InstallSnapshotResponse, error) {
@@ -254,7 +193,7 @@ func (h *HTTPTransport) HandleInstallSnapshot(req struct {
 	}
 
 	select {
-	case h.consumer <- rpc:
+	case t.consumer <- rpc:
 	case <-time.After(30 * time.Second):
 		return nil, fmt.Errorf("timeout sending to consumer")
 	}
@@ -271,3 +210,21 @@ func (h *HTTPTransport) HandleInstallSnapshot(req struct {
 }
 
 
+
+
+// --------------------------- Auxiliares  ----------------------------
+
+func (t *HTTPTransport) LocalAddr() raft.ServerAddress {
+	return raft.ServerAddress(t.httpAddr)
+}
+
+
+func (t *HTTPTransport) Close() error {
+	close(t.consumer)
+	return nil
+}
+
+// Consumer retorna canal para processar RPCs recebidos
+func (t *HTTPTransport) Consumer() <-chan raft.RPC {
+	return t.consumer
+}

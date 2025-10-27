@@ -3,7 +3,7 @@ package trasport
 import (
 	"fmt"
 	"time"
-
+	"sync"
 	"github.com/hashicorp/raft"
 )
 
@@ -15,48 +15,91 @@ type httpPipeline struct {
 	transport *HTTPTransport
 	target    raft.ServerAddress
 	doneCh    chan raft.AppendFuture
+	
+	mu       sync.RWMutex
+	closed   bool
+	shutdownCh chan struct{}
 }
+
+
 
 
 // adiciona uma entrada ao pipeline
 // retorna esturtura apprendFuture
 // o heartbeat tbm e mandado pelo appendEntries
 func (p *httpPipeline) AppendEntries(args *raft.AppendEntriesRequest, resp *raft.AppendEntriesResponse) (raft.AppendFuture, error) {
+	// Verifica se pipeline foi fechado
+	p.mu.RLock()
+	if p.closed {
+		p.mu.RUnlock()
+		return nil, fmt.Errorf("pipeline closed")
+	}
+	p.mu.RUnlock()
+
 	future := &appendFuture{
 		start: time.Now(),
 		args:  args,
 		resp:  resp,
 	}
 
-	// Envia de forma assíncrona
+	
 	go func() {
 		url := fmt.Sprintf("%s/api/v1/raft/append-entries", p.target)
 		future.err = p.transport.sendRPC(url, args, resp)
 		future.responded = time.Now()
 
+		//  Verifica se pipeline ainda está aberto antes de enviar
+		p.mu.RLock()
+		closed := p.closed
+		p.mu.RUnlock()
+
+		if closed {
+			
+			return
+		}
+
+		
 		select {
 		case p.doneCh <- future:
-		default:
-
+			
+		case <-p.shutdownCh:
+			
+			return
+		case <-time.After(100 * time.Millisecond):
+			
+			return
 		}
 	}()
 
 	return future, nil
 }
-
-//  retorna canal de futures completados
 func (p *httpPipeline) Consumer() <-chan raft.AppendFuture {
 	return p.doneCh
 }
 
-// fecha o pipeline
+
 func (p *httpPipeline) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return nil
+	}
+
+	p.closed = true
+	
+	// Fecha canal de shutdown primeiro (sinaliza para goroutines pararem)
+	close(p.shutdownCh)
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Fecha canal de resultados
 	close(p.doneCh)
+	
 	return nil
 }
 
-// implementa raft.AppendFuture
-// esta esturura é usada para retornar informações sobre o AppendEntries com pipeline
+// appendFuture implementa raft.AppendFuture
 type appendFuture struct {
 	start     time.Time
 	args      *raft.AppendEntriesRequest
@@ -65,7 +108,6 @@ type appendFuture struct {
 	responded time.Time
 }
 
-// metodoes obirgatorios da esturutra
 func (a *appendFuture) Error() error {
 	return a.err
 }
@@ -82,7 +124,7 @@ func (a *appendFuture) Response() *raft.AppendEntriesResponse {
 	return a.resp
 }
 
-// Implementa IndexFuture para compatibilidade
+
 type deferError struct {
 	err error
 }

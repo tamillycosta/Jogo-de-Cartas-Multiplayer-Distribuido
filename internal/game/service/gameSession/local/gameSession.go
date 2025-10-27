@@ -133,47 +133,6 @@ func (s *LocalGameSession) endGame(winnerID string) {
 
 
 
-// RESTAURA HP DAS CARTAS APOS UMA BATALHA 
-func (s *LocalGameSession) RestoreCardsHp() {
-	log.Printf(" Restaurando HP das cartas...")
-	
-	if s.Player1 != nil && len(s.Player1.Deck) > 0 {
-		for i := 0; i < len(s.Player1.Deck) && i < 3; i++ {
-			card := s.Player1.Deck[i]
-			if card == nil {
-				continue
-			}
-			templateCard, exists := entities.BaseCards[card.TemplateID]
-			
-			// DEPOIS VERIFICAR PQ N TA RESTAURANDO 
-			if !exists {
-				log.Printf("Template não encontrado: %s", card.TemplateID)
-				continue
-			}
-			
-			s.Player1.Deck[i].Health = templateCard.Health
-		}
-	}
-
-	if s.Player2 != nil && len(s.Player2.Deck) > 0 {
-		for i := 0; i < len(s.Player2.Deck) && i < 3; i++ {
-			card := s.Player2.Deck[i]
-			if card == nil {
-				continue
-			}
-			templateCard, exists := entities.BaseCards[card.TemplateID]
-			
-			if !exists {
-				log.Printf("   ⚠️ Template não encontrado: %s", card.TemplateID)
-				continue
-			}
-			
-			s.Player2.Deck[i].Health = templateCard.Health
-			
-		}
-	}
-}
-
 
 
 // ---------------------------- AUXILIARES ---------------------------------------

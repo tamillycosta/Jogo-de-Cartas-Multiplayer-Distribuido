@@ -93,6 +93,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
 		cmds = append(cmds, cmd)
 
+	case models.SwitchToLobbyMsg:
+		m.currentModel = models.NewLobby()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+
 	// --- MENSAGENS VINDAS DO LISTENER (LOOP) ---
 	case comm.AuthResponseMsg:
 		// 1. Passa a mensagem para o modelo filho

@@ -75,9 +75,9 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = fmt.Sprintf("Sucesso! %s", msg.Message)
 			m.textInput.Reset()
 			
-			// Retorna ao menu após 2 segundos
-			cmd = tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
-				return SwitchToMenuMsg{}
+			// Retorna ao menu após 1 segundos
+			cmd = tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
+				return SwitchToLobbyMsg{}
 			})
 			
 		} else {

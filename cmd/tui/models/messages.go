@@ -14,3 +14,5 @@ type DoRegisterMsg struct {
 type DoLoginMsg struct {
 	Username string
 }
+
+type SwitchToLobbyMsg struct{}

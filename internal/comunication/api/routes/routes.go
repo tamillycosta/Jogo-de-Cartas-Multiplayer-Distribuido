@@ -23,10 +23,23 @@ import (
 				auth.POST("/create-account", handler.AuthHandler.CreateAccount)
 			}
 		
+			// ------------------- Gerecimaneto de pacotes ------------------------
 			packages := v1.Group("/package")
 			{
-				packages.POST("open-package", handler.PackageHandler.OpenPackage)
+				packages.POST("/open-package", handler.PackageHandler.OpenPackage)
 			}
+
+
+			// ------------------- Gerecimaneto de partidas ------------------------
+			matchs := v1.Group("/match")
+			{
+				matchs.POST("/global/join", handler.MatchHandler.HandleJoinGlobalQueue)
+				matchs.POST("/created", handler.MatchHandler.HandleRemoteMatchNotification)
+				matchs.POST("/sync", handler.MatchHandler.HandleMatchSync)
+				matchs.POST("/action", handler.MatchHandler.HandleMatchAction)
+				matchs.POST("/heartbeat", handler.MatchHandler.HandleHeartbeat)
+			}
+
 			// Raft ------------------- Gerenciamento do Cluster ------------------
 			
 			raft := v1.Group("/raft")

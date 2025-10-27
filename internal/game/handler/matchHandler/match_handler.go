@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
+	gamesession "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession"
+	
 	matchlocal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_local"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
@@ -15,21 +16,19 @@ import (
 // MatchHandler - Gerencia tópicos relacionados a partidas
 type MatchTopicHandler struct {
 	localMatchmaking *matchlocal.LocalMatchmaking
-	sessionManager   *local.GameSessionManager
+	gameSessionManager   *gamesession.GameSessionManager
 	authSession      *session.SessionManager
 	broker           *pubsub.Broker
 }
 
-func New(localMatchmaking *matchlocal.LocalMatchmaking, sessionManager *local.GameSessionManager, authSession *session.SessionManager, broker *pubsub.Broker) *MatchTopicHandler {
+func New(localMatchmaking *matchlocal.LocalMatchmaking, gameSessionManager   *gamesession.GameSessionManager, authSession *session.SessionManager, broker *pubsub.Broker) *MatchTopicHandler {
 	return &MatchTopicHandler{
 		localMatchmaking: localMatchmaking,
-		sessionManager:   sessionManager,
+		gameSessionManager:  gameSessionManager,
 		authSession:      authSession,
 		broker:           broker,
 	}
 }
-
-
 
 
 
@@ -39,14 +38,14 @@ func (h *MatchTopicHandler) HandleTopic(clientID, topic string, data interface{}
 	switch topic {
 	case "match.join_queue":
 		return h.handleJoinQueue(clientID, data)
-
+ 
 	case "match.play_card":
 		return h.handlePlayCard(clientID, data)
 
 	case "match.attack":
 		return h.handleAttack(clientID, data)
 
-	case "match.surrender":
+	case "match.leave_match":
 		return h.handleLeaveMatch(clientID, data)
 
 	default:
@@ -69,7 +68,7 @@ func (h *MatchTopicHandler) handleJoinQueue(clientID string, data interface{}) e
 		return h.sendError(clientID, "você não está autenticado")
 	}
 
-	if inMatch, matchID := h.sessionManager.IsPlayerInMatch(playerID); inMatch {
+	if inMatch, matchID := h.gameSessionManager.IsPlayerInMatch(playerID); inMatch {
 		return h.sendError(clientID, "você já está na partida: "+matchID)
 	}
 
@@ -119,7 +118,7 @@ func (h *MatchTopicHandler) handlePlayCard(clientID string, data interface{}) er
 		CardID: cardID,
 	}
 
-	if err := h.sessionManager.ProcessAction(matchID, playerID, action); err != nil {
+	if err := h.gameSessionManager.ProcessAction(matchID, playerID, action); err != nil {
 		return h.sendError(clientID, err.Error())
 	}
 
@@ -154,7 +153,7 @@ func (h *MatchTopicHandler) handleAttack(clientID string, data interface{}) erro
 		AttackerCardID: attackerCardID,
 	}
 
-	if err := h.sessionManager.ProcessAction(matchID, playerID, action); err != nil {
+	if err :=h.gameSessionManager.ProcessAction(matchID, playerID, action); err != nil {
 		return h.sendError(clientID, err.Error())
 	}
 
@@ -188,7 +187,7 @@ func (h *MatchTopicHandler) handleLeaveMatch(clientID string, data interface{}) 
 		AttackerCardID: "",
 	}
 
-	if err := h.sessionManager.ProcessAction(matchID, playerID, action); err != nil {
+	if err := h.gameSessionManager.ProcessAction(matchID, playerID, action); err != nil {
 		return h.sendError(clientID, err.Error())
 	}
 

@@ -74,7 +74,7 @@ func (gsm *GameSessionManager) createLocalMatch(p1, p2 *matchmaking.QueueEntry) 
 		return
 	}
 
-	gsm.notifyMatchCreated(session, p1.ClientID, p2.ClientID)
+	gsm.notifyLocalMatchCreated(session, p1.ClientID, p2.ClientID)
 	go session.Start()
 
 	log.Printf("[SessionManager] Partida local criada: %s", session.MatchID)

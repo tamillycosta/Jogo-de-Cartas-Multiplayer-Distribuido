@@ -86,6 +86,7 @@ func (s *RemoteGameSession) ProcessAction(playerID string, action shared.GameAct
 		log.Printf("VITÓRIA! Vencedor: %s", winnerPlayer.Username)
 		
 		s.Status = "finished"
+		s.WinnerID = winnerPlayer.ID
 		s.notifyLocalClient("match_ended")
 		
 		
@@ -120,7 +121,6 @@ func (s *RemoteGameSession) ProcessAction(playerID string, action shared.GameAct
 
 // LIDA COM SAIDA DE UM JOGADOR DA PARTIDA 
 func (s *RemoteGameSession) HandleLeave(playerID string) error {
-	
 	if s.Status == "finished" {
 		log.Printf("⚠️ [RemoteGame] Leave ignorado: partida já terminou (playerID: %s)", playerID)
 		return nil
@@ -128,26 +128,24 @@ func (s *RemoteGameSession) HandleLeave(playerID string) error {
 	
 	log.Printf(" [RemoteGame] %s está saindo", playerID)
 	
-	player := s.getPlayer(playerID)
+	
 	opponent := s.getOpponent(playerID)
 
+	//  FIX: Oponente SEMPRE vence (ou empate se não houver oponente)
 	var winnerID string
 	if opponent != nil {
 		winnerID = opponent.ID
-	} else if player != nil {
-		winnerID = player.ID
+		log.Printf("Vencedor: %s (oponente de quem desistiu)", opponent.Username)
+	} else {
+		log.Printf("⚠️ Sem oponente - partida encerrada sem vencedor")
 	}
 
-	winner := s.getPlayer(winnerID)
-	if winner != nil {
-		log.Printf("Vencedor: %s", winner.Username)
-	}
-
+	//  FIX: Salva o winner no estado da sessão
+	s.WinnerID = winnerID
 	s.Status = "finished"
 
 	s.notifyLocalClient("match_ended")
 
-	
 	s.mu.Unlock()
 	if s.IsHost {
 		s.syncStateToRemoteBlocking()
@@ -160,7 +158,6 @@ func (s *RemoteGameSession) HandleLeave(playerID string) error {
 
 	return nil
 }
-
 
 
 // ESCOLHE UMA CARTA 
@@ -240,8 +237,9 @@ func (s *RemoteGameSession) endTurn() {
 		s.CurrentTurnPlayerID = s.RemotePlayer.ID
 	} else {
 		s.CurrentTurnPlayerID = s.LocalPlayer.ID
-		s.TurnNumber++
+	
 	}
+	s.TurnNumber++
 }
 
 

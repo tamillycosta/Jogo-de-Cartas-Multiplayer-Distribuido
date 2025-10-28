@@ -12,69 +12,80 @@ import (
 
 // 
 func (gsm *GameSessionManager) notifyClientRemoteMatchCreated(session *remote.RemoteGameSession, clientID string) {
-	matchTopic := "match." + session.MatchID
+    matchTopic := "match." + session.MatchID
 
+    //  INSCREVE CLIENTE NO TÓPICO DA PARTIDA
+    if err := gsm.broker.SubscribeClient(clientID, matchTopic); err != nil {
+        log.Printf(" Erro ao inscrever cliente remoto: %v", err)
+    }
+    
+    log.Printf("[GameSession] Cliente remoto inscrito em %s", matchTopic)
 
-	localDeckInfo := gsm.serializeDeck(session.LocalPlayer.Deck)
+    localDeckInfo := gsm.serializeDeck(session.LocalPlayer.Deck)
 
-	notification := map[string]interface{}{
-		"type":           "match_found",
-		"match_id":       session.MatchID,
-		"player_id":      session.LocalPlayer.ID,  
-		"topic":          matchTopic,
-		"auto_subscribe": true,
-		"opponent":       session.RemotePlayer.Username,
-		"your_deck":      localDeckInfo,
-		"is_remote":      true,
-		"is_host":        session.IsHost,
-		"message":        "Partida remota encontrada! Aguarde início...",
-	}
+    notification := map[string]interface{}{
+        "type":      "match_found",
+        "match_id":  session.MatchID,
+        "player_id": session.LocalPlayer.ID,
+        "opponent":  session.RemotePlayer.Username,
+        "your_deck": localDeckInfo,
+        "is_remote": true,
+        "is_host":   session.IsHost,
+        "message":   "Partida remota encontrada! Iniciando...",
+    }
 
-	gsm.broker.Publish("response."+clientID, notification)
+    gsm.broker.Publish("response."+clientID, notification)
 
-	log.Printf(" [GameSessionManager] Notificação REMOTA enviada | PlayerID: %s | Tópico: %s", 
-		session.LocalPlayer.ID, matchTopic)
+    log.Printf("[GameSession] Notificação remota enviada para %s", session.LocalPlayer.Username)
 }
 
 
 func (gsm *GameSessionManager) notifyLocalMatchCreated(session *local.LocalGameSession, client1ID, client2ID string) {
-	matchTopic := "match." + session.MatchID
+    matchTopic := "match." + session.MatchID
 
-	p1DeckInfo := gsm.serializeDeck(session.Player1.Deck)
-	p2DeckInfo := gsm.serializeDeck(session.Player2.Deck)
+    // INSCREVE AMBOS CLIENTES NO TÓPICO DA PARTIDA
+    if err := gsm.broker.SubscribeClient(client1ID, matchTopic); err != nil {
+        log.Printf("Erro ao inscrever P1: %v", err)
+    }
+    
+    if err := gsm.broker.SubscribeClient(client2ID, matchTopic); err != nil {
+        log.Printf("Erro ao inscrever P2: %v", err)
+    }
+    
+    log.Printf("[GameSession] Clientes inscritos em %s", matchTopic)
 
-	// Notificação para Player1
-	notification1 := map[string]interface{}{
-		"type":           "match_found",
-		"match_id":       session.MatchID,
-		"player_id":      session.Player1.ID,  
-		"topic":          matchTopic,
-		"auto_subscribe": true,
-		"opponent":       session.Player2.Username,
-		"your_deck":      p1DeckInfo,
-		"is_remote":      false,
-		"message":        "Partida encontrada! Aguarde início...",
-	}
+    // Serializa decks
+    p1DeckInfo := gsm.serializeDeck(session.Player1.Deck)
+    p2DeckInfo := gsm.serializeDeck(session.Player2.Deck)
 
-	gsm.broker.Publish("response."+client1ID, notification1)
+    // Notificação para Player1
+    notification1 := map[string]interface{}{
+        "type":      "match_found",
+        "match_id":  session.MatchID,
+        "player_id": session.Player1.ID,
+        "opponent":  session.Player2.Username,
+        "your_deck": p1DeckInfo,
+        "is_remote": false,
+        "message":   "Partida encontrada! Iniciando...",
+    }
 
-	// Notificação para Player2
-	notification2 := map[string]interface{}{
-		"type":           "match_found",
-		"match_id":       session.MatchID,
-		"player_id":      session.Player2.ID,  
-		"topic":          matchTopic,
-		"auto_subscribe": true,
-		"opponent":       session.Player1.Username,
-		"your_deck":      p2DeckInfo,
-		"is_remote":      false,
-		"message":        "Partida encontrada! Aguarde início...",
-	}
+    gsm.broker.Publish("response."+client1ID, notification1)
 
-	gsm.broker.Publish("response."+client2ID, notification2)
+    // Notificação para Player2
+    notification2 := map[string]interface{}{
+        "type":      "match_found",
+        "match_id":  session.MatchID,
+        "player_id": session.Player2.ID,
+        "opponent":  session.Player1.Username,
+        "your_deck": p2DeckInfo,
+        "is_remote": false,
+        "message":   "Partida encontrada! Iniciando...",
+    }
 
-	log.Printf("[SessionManager] Notificações LOCAL enviadas | P1: %s | P2: %s | Tópico: %s", 
-		session.Player1.ID, session.Player2.ID, matchTopic)
+    gsm.broker.Publish("response."+client2ID, notification2)
+
+    log.Printf("[GameSession] Notificações enviadas para %s e %s", 
+        session.Player1.Username, session.Player2.Username)
 }
 
 

@@ -23,7 +23,7 @@ type RemoteGameSession struct {
 
 	LocalPlayer  *entities.GamePlayer
 	RemotePlayer *entities.GamePlayer
-
+	WinnerID 		string
 	CurrentTurnPlayerID string
 	TurnNumber          int
 	Status              string
@@ -112,7 +112,8 @@ func (s *RemoteGameSession) Start() {
 		s.syncStateToRemote()
 		log.Printf("[RemoteGame] HOST sincronizou turno inicial: %s", s.CurrentTurnPlayerID)
 	}
-
+	
+	
 	s.notifyLocalClient("match_started")
 
 	log.Printf("[RemoteGame] Partida iniciada | CurrentTurn: %s", s.CurrentTurnPlayerID)

@@ -19,6 +19,7 @@ func (s *LocalGameSession) broadcastGameState(eventType string) {
 	}
 
 	// Publica no tópico da partida
+	
 	topic := "match." + s.MatchID
 	s.broker.Publish(topic, message)
 
@@ -29,40 +30,54 @@ func (s *LocalGameSession) broadcastGameState(eventType string) {
 
 // Notifica os jogadores a ciração da  partida
 // Serializa o deck
-func (gsm *GameSessionManager) notifyMatchCreated(session *LocalGameSession, client1ID, client2ID string) {
-	matchTopic := "match." + session.MatchID
+func (gsm *GameSessionManager) notifyLocalMatchCreated(session *LocalGameSession, client1ID, client2ID string) {
+    matchTopic := "match." + session.MatchID
 
-	p1DeckInfo := gsm.serializeDeck(session.Player1.Deck)
-	p2DeckInfo := gsm.serializeDeck(session.Player2.Deck)
+    // INSCREVE AMBOS CLIENTES NO TÓPICO DA PARTIDA
+    if err := gsm.broker.SubscribeClient(client1ID, matchTopic); err != nil {
+        log.Printf("Erro ao inscrever P1: %v", err)
+    }
+    
+    if err := gsm.broker.SubscribeClient(client2ID, matchTopic); err != nil {
+        log.Printf("Erro ao inscrever P2: %v", err)
+    }
+    
+    log.Printf("[GameSession] Clientes inscritos em %s", matchTopic)
 
-	// Notificação para Player1
-	notification1 := map[string]interface{}{
-		"type":           "match_found",
-		"match_id":       session.MatchID,
-		"topic":          matchTopic,
-		"auto_subscribe": true,
-		"opponent":       session.Player2.Username,
-		"your_deck":      p1DeckInfo,
-		"message":        "Partida encontrada! Aguarde início...",
-	}
+    // Serializa decks
+    p1DeckInfo := gsm.serializeDeck(session.Player1.Deck)
+    p2DeckInfo := gsm.serializeDeck(session.Player2.Deck)
 
-	gsm.broker.Publish("response."+client1ID, notification1)
+    // Notificação para Player1
+    notification1 := map[string]interface{}{
+        "type":      "match_found",
+        "match_id":  session.MatchID,
+        "player_id": session.Player1.ID,
+        "opponent":  session.Player2.Username,
+        "your_deck": p1DeckInfo,
+        "is_remote": false,
+        "message":   "Partida encontrada! Iniciando...",
+    }
 
-	// Notificação para Player2
-	notification2 := map[string]interface{}{
-		"type":           "match_found",
-		"match_id":       session.MatchID,
-		"topic":          matchTopic,
-		"auto_subscribe": true,
-		"opponent":       session.Player1.Username,
-		"your_deck":      p2DeckInfo,
-		"message":        "Partida encontrada! Aguarde início...",
-	}
+    gsm.broker.Publish("response."+client1ID, notification1)
 
-	gsm.broker.Publish("response."+client2ID, notification2)
+    // Notificação para Player2
+    notification2 := map[string]interface{}{
+        "type":      "match_found",
+        "match_id":  session.MatchID,
+        "player_id": session.Player2.ID,
+        "opponent":  session.Player1.Username,
+        "your_deck": p2DeckInfo,
+        "is_remote": false,
+        "message":   "Partida encontrada! Iniciando...",
+    }
 
-	log.Printf("[SessionManager] Notificações enviadas | Tópico: %s", matchTopic)
+    gsm.broker.Publish("response."+client2ID, notification2)
+
+    log.Printf("[GameSession] Notificações enviadas para %s e %s", 
+        session.Player1.Username, session.Player2.Username)
 }
+
 
 // ------------------------ Auxiliares -----------------------
 
@@ -116,7 +131,7 @@ func (s *LocalGameSession) buildGameState() map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	gameState := map[string]interface{}{
 		"player1": map[string]interface{}{
 			"id":           s.Player1.ID,
 			"username":     s.Player1.Username,
@@ -135,6 +150,19 @@ func (s *LocalGameSession) buildGameState() map[string]interface{} {
 		"turn_number":  s.TurnNumber,
 		"status":       s.Status,
 	}
+
+	if s.Status == "finished" {
+		if s.Player1.ID == s.WinnerID{
+			gameState["winner_id"] = s.Player1.ID
+			gameState["winner_username"] = s.Player1.Username
+			log.Printf("[LOCAL HOST] Vencedor: %s (LOCAL)", s.Player1.Username)
+		} else if s.Player2.ID == s.WinnerID{
+			gameState["winner_id"] = s.Player2.ID
+			gameState["winner_username"] = s.Player2.Username
+			log.Printf("[LOCAL HOST] Vencedor: %s (REMOTO)", s.Player2.Username)
+		}
+	}
+	return  gameState
 }
 
 func (gsm *GameSessionManager) serializeDeck(deck []*entities.Card) []map[string]interface{} {

@@ -160,6 +160,9 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 		return err
 	}
 	
+
+	
+
 	// Cria sessão remota
 	session := remote.New(
 		matchID,

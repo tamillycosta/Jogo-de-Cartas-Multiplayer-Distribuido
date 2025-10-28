@@ -2,6 +2,7 @@ package matchglobal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -45,13 +46,17 @@ func New(
 	return gms
 }
 
-// JoinGlobalQueue - Jogador entra na fila global (via Raft)
+//  Jogador entra na fila global (via Raft)
 func (gms *GlobalMatchmakingService) JoinGlobalQueue(clientID, playerID, username, serverID string) error {
 	log.Printf("[GlobalMatchmaking] Player %s entrando na fila GLOBAL...", username)
-
+	
 	if !gms.raft.IsLeader() {
 		log.Printf("[GlobalMatchmaking] Não sou líder, encaminhando para líder...")
 		return gms.forwardToLeader(clientID, playerID, username, serverID)
+	}
+
+	if (len(gms.raft.GetServers()) <= 1){
+		return errors.New("não é possivel fazer partida remota, apenas 1 server no cluter")
 	}
 
 	return gms.joinGlobalQueueAsLeader(clientID, playerID, username, serverID)
@@ -175,17 +180,27 @@ func (gms *GlobalMatchmakingService) processGlobalQueue() {
 		// Remove jogadores da fila em caso de erro
 		gms.LeaveGlobalQueue(p1.PlayerID)
 		gms.LeaveGlobalQueue(p2.PlayerID)
+		// adiciona de novo para tentar outro match 
+		gms.JoinGlobalQueue(p1.ClientID,p1.PlayerID, p1.Username, p1.ServerID)
+		gms.JoinGlobalQueue(p2.ClientID,p2.PlayerID, p2.Username, p2.ServerID)
 	}
 }
 
 // createRemoteMatch - Cria partida remota e notifica servidores
 func (gms *GlobalMatchmakingService) createRemoteMatch(p1, p2 *entities.GlobalQueueEntry) error {
-	matchID := uuid.New().String()
+	if(gms.raft.IsLeader()){
+		matchID := uuid.New().String()
 
 	// Escolhe servidor host (simplificado: servidor do player1)
 
 	hostServer := p1.ServerID
 
+	if(p1.ServerID == p2.ServerID){
+		return errors.New("não é possivel fazer partida remota com players de mesmo servidor")
+		
+	}
+
+	
 	// Cria match remoto via Raft (replica em todos os servidores)
 	cmd := comands.CreateRemoteMatchCommand{
 		MatchID:         matchID,
@@ -217,6 +232,8 @@ func (gms *GlobalMatchmakingService) createRemoteMatch(p1, p2 *entities.GlobalQu
 
 	log.Printf("[GlobalMatchmaking] Match remoto %s criado | Host=%s", matchID, hostServer)
 	return nil
+	}
+	return errors.New("não sou lider ")
 }
 
 // Notifica servidores sobre nova partida remota

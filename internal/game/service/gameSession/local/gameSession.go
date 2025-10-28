@@ -5,10 +5,10 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 	"errors"
+	
 	"log"
 	"sync"
 	"time"
-	
 
 	"github.com/google/uuid"
 )
@@ -32,7 +32,7 @@ type LocalGameSession struct {
 	MatchID  string
 	Player1  *entities.GamePlayer
 	Player2  *entities.GamePlayer
-	
+	WinnerID string
 	CurrentTurnPlayerID string
 	TurnNumber          int
 	Status              string
@@ -55,6 +55,7 @@ func New(
 			ID:       player1ID,
 			Username: player1Username,
 			ClientID: player1ClientID,
+			
 			Life:     INITIAL_PLAYER_LIFE,
 			Deck:     make([]*entities.Card, 0),
 		},
@@ -90,45 +91,14 @@ func (s *LocalGameSession) Start() {
 	log.Printf("[LocalGame] Iniciando partida %s: %s vs %s | Turno: %s", 
 		s.MatchID, s.Player1.Username, s.Player2.Username, s.CurrentTurnPlayerID)
 	
+	time.Sleep(2 * time.Second)
 	s.broadcastGameState("match_started")
+
 	log.Printf("[LocalGame] Partida iniciada com sucesso")
 }
 
 
 
-// Finaliza partida para os jogadores 
-// notifica os jogadores e limpa as partidas 
-func (s *LocalGameSession) endGame(winnerID string) {
-	
-	if s.Status == "finished" {
-		log.Printf("[LocalGame] Partida %s já estava finalizada", s.MatchID)
-		return
-	}
-	
-	s.Status = "finished"
-	
-	winner := s.getPlayer(winnerID)
-	loser := s.getOpponent(winnerID)
-	
-	if winner != nil && loser != nil {
-		log.Printf("   [LocalGame] PARTIDA %s FINALIZADA!", s.MatchID)
-		log.Printf("   Vencedor: %s (Life: %d)", winner.Username, winner.Life)
-		log.Printf("   Perdedor: %s (Life: %d)", loser.Username, loser.Life)
-	}
-	
-	
-	s.broadcastGameState("match_ended")
-	
-	
-	if s.onMatchEnd != nil {
-		log.Printf("Agendando limpeza da partida %s...", s.MatchID)
-		go func() {
-			// Delay para garantir que broadcast chegue
-			time.Sleep(500 * time.Millisecond)
-			s.onMatchEnd(s.MatchID)
-		}()
-	}
-}
 
 
 
@@ -213,18 +183,4 @@ func (s *LocalGameSession) Close() {
 }
 
 
-
-func (s *LocalGameSession) endTurn() {
-	if s.CurrentTurnPlayerID == s.Player1.ID {
-		s.CurrentTurnPlayerID = s.Player2.ID
-	} else {
-		s.CurrentTurnPlayerID = s.Player1.ID
-		s.TurnNumber++
-	}
-	
-	currentPlayer := s.getPlayer(s.CurrentTurnPlayerID)
-	if currentPlayer != nil {
-		log.Printf("[LocalGame] Turno #%d: %s", s.TurnNumber, currentPlayer.Username)
-	}
-}
 

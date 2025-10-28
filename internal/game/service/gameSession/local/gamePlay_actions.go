@@ -4,7 +4,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/aplication/usecases"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	"log"
-
+	"time"
 	shared "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
 )
 
@@ -21,16 +21,23 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 		log.Printf("Partida já terminou!")
 		return shared.NewGameError("partida já terminou")
 	}
+	player := s.getPlayer(playerID)
+	opponent := s.getOpponent(playerID)
 	
+
+	if action.Type == ACTION_LEAVE_MATCH {
+		log.Printf("%s desistiu", player.Username)
+		s.LeaveMatch(playerID)
+		return nil  
+	}
+
 	// Valida turno
 	if playerID != s.CurrentTurnPlayerID {
 		log.Printf("Não é turno de %s! CurrentTurn: %s", playerID, s.CurrentTurnPlayerID)
 		return shared.ErrNotYourTurn
 	}
 	
-	player := s.getPlayer(playerID)
-	opponent := s.getOpponent(playerID)
-	
+
 	if player == nil || opponent == nil {
 		log.Printf("Player/Opponent não encontrado!")
 		return shared.NewGameError("erro ao recuperar players da partida")
@@ -38,6 +45,7 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 	
 	log.Printf("Jogador: %s (Life: %d) | Oponente: %s (Life: %d)", 
 		player.Username, player.Life, opponent.Username, opponent.Life)
+
 
 	// Processa ação com recovery para evitar panic
 	var actionErr error
@@ -63,10 +71,8 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 				log.Printf("Ataque de %s executado", player.Username)
 			}
 			
-		case ACTION_LEAVE_MATCH:
-			log.Printf("%s desistiu", player.Username)
-			s.LeaveMatch(playerID)
-			
+		 
+
 		default:
 			log.Printf("Ação inválida: %s", action.Type)
 			actionErr = shared.NewGameError("ação inválida")
@@ -78,7 +84,7 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 		return actionErr
 	}
 	
-	s.broadcastGameState("action_performed")
+	
 	
 	
 	// Verifica vitória 
@@ -86,6 +92,7 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 		winnerPlayer := s.getPlayer(winner)
 		log.Printf("VITÓRIA! Vencedor: %s (Life: %d)", 
 			winnerPlayer.Username, winnerPlayer.Life)
+		
 		s.endGame(winner)
 		return nil 
 	}
@@ -98,7 +105,8 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 	
 	log.Printf("Turno: %s -> %s | Turn #%d\n", 
 		oldTurnPlayer.Username, newTurnPlayer.Username, s.TurnNumber)
-
+		
+	s.broadcastGameState("action_performed")
 	return nil
 }
 
@@ -190,6 +198,7 @@ func (s *LocalGameSession) LeaveMatch(playerID string) {
 	
 	if opponent != nil {
 		s.endGame(opponent.ID)
+		s.WinnerID = opponent.ID
 	}
 	
 	if player != nil {
@@ -208,5 +217,55 @@ func (s *LocalGameSession) checkWinCondition() string {
 	return ""
 }
 
+
+
+// Finaliza partida para os jogadores 
+// notifica os jogadores e limpa as partidas 
+func (s *LocalGameSession) endGame(winnerID string) {
+	
+	if s.Status == "finished" {
+		log.Printf("[LocalGame] Partida %s já estava finalizada", s.MatchID)
+		return
+	}
+	
+	s.Status = "finished"
+	
+	winner := s.getPlayer(winnerID)
+	loser := s.getOpponent(winnerID)
+
+	s.WinnerID = winnerID
+
+	if winner != nil && loser != nil {
+		log.Printf("   [LocalGame] PARTIDA %s FINALIZADA!", s.MatchID)
+		log.Printf("   Vencedor: %s (Life: %d)", winner.Username, winner.Life)
+		log.Printf("   Perdedor: %s (Life: %d)", loser.Username, loser.Life)
+	}
+	
+	
+	s.broadcastGameState("match_ended")
+	
+	
+	if s.onMatchEnd != nil {
+		log.Printf("Agendando limpeza da partida %s...", s.MatchID)
+		go func() {
+			// Delay para garantir que broadcast chegue
+			time.Sleep(500 * time.Millisecond)
+			s.onMatchEnd(s.MatchID)
+		}()
+	}
+}
+
+func (s *LocalGameSession) endTurn() {
+	if s.CurrentTurnPlayerID == s.Player1.ID {
+		s.CurrentTurnPlayerID = s.Player2.ID
+	} else {
+		s.CurrentTurnPlayerID = s.Player1.ID
+	}
+	s.TurnNumber++
+	currentPlayer := s.getPlayer(s.CurrentTurnPlayerID)
+	if currentPlayer != nil {
+		log.Printf("[LocalGame] Turno #%d: %s", s.TurnNumber, currentPlayer.Username)
+	}
+}
 
 

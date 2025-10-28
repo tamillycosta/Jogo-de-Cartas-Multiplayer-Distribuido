@@ -73,14 +73,17 @@ func (c *Client) Listen() tea.Cmd {
 
 // parseServerMessage traduz uma ServerMsg genérica em uma tea.Msg específica
 func (c *Client) parseServerMessage(msg ServerMsg) tea.Msg {
-	// Respostas de autenticação
-	if msg.Topic == "auth.response" {
+	
+	// *** CORREÇÃO AQUI ***
+	// O log mostra que o tópico da mensagem de resposta é "response"
+	if msg.Topic == "response" {
 		var authData AuthResponseData
 		if err := json.Unmarshal(msg.Data, &authData); err != nil {
+			log.Printf("[WS] Erro ao decodificar AuthResponseData: %v. Dados brutos: %s", err, string(msg.Data))
 			return ErrorMsg{fmt.Errorf("erro ao decodificar AuthResponseData: %v", err)}
 		}
 		
-		log.Printf("[WS] Recebido AuthResponse: %s", authData.Type)
+		log.Printf("[WS] Recebido AuthResponse: %s (Success: %t)", authData.Type, authData.Success)
 		return AuthResponseMsg{
 			Success: authData.Success,
 			Message: authData.Message,
@@ -88,6 +91,7 @@ func (c *Client) parseServerMessage(msg ServerMsg) tea.Msg {
 		}
 	}
 	
+	// Retorna nil se não for uma mensagem de auth (será tratado como NoOpMsg)
 	return nil
 }
 

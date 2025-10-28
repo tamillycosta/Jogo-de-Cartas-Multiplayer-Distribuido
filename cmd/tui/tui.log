@@ -159,3 +159,67 @@ debug 2025/10/27 23:46:11 [WS] Inscrevendo no tópico: auth.response.7f5c768c-91
 debug 2025/10/27 23:46:11 [WS] Mensagem bruta recebida: {Type:subscribed ClientID: Topic:auth.response.7f5c768c-910d-4179-b904-774a52b816db Data:[]}
 debug 2025/10/27 23:46:31 [WS] Publicando no tópico: auth.create_account
 debug 2025/10/27 23:46:36 [WS] Publicando no tópico: auth.login
+debug 2025/10/28 00:51:32 Iniciando TUI...
+debug 2025/10/28 00:51:32 [WS] Conectado! Aguardando ClientID...
+debug 2025/10/28 00:51:32 [WS] ClientID recebido: 4af336c0-0655-43a6-b167-e76921a5dabf
+debug 2025/10/28 00:51:32 [AppModel] Inscrevendo-se em: response.4af336c0-0655-43a6-b167-e76921a5dabf
+debug 2025/10/28 00:51:32 [WS] Inscrevendo no tópico: response.4af336c0-0655-43a6-b167-e76921a5dabf
+debug 2025/10/28 00:51:32 [WS] Mensagem bruta recebida: {Type:subscribed ClientID: Topic:response.4af336c0-0655-43a6-b167-e76921a5dabf Data:[]}
+debug 2025/10/28 00:51:32 [AppModel] NoOp recebido. Reiniciando escuta.
+debug 2025/10/28 00:51:36 Iniciando TUI...
+debug 2025/10/28 00:51:36 [WS] Conectado! Aguardando ClientID...
+debug 2025/10/28 00:51:36 [WS] ClientID recebido: 1782a55f-f961-4a64-8788-7184ffb29af8
+debug 2025/10/28 00:51:36 [AppModel] Inscrevendo-se em: response.1782a55f-f961-4a64-8788-7184ffb29af8
+debug 2025/10/28 00:51:36 [WS] Inscrevendo no tópico: response.1782a55f-f961-4a64-8788-7184ffb29af8
+debug 2025/10/28 00:51:36 [WS] Mensagem bruta recebida: {Type:subscribed ClientID: Topic:response.1782a55f-f961-4a64-8788-7184ffb29af8 Data:[]}
+debug 2025/10/28 00:51:36 [AppModel] NoOp recebido. Reiniciando escuta.
+debug 2025/10/28 00:51:46 [WS] Publicando no tópico: auth.create_account
+debug 2025/10/28 00:51:46 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 97 99 99 111 117 110 116 95 99 114 101 97 116 101 100 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 67 111 110 116 97 32 39 104 116 97 39 32 99 114 105 97 100 97 32 99 111 109 32 115 117 99 101 115 115 111 33 34 125]}
+debug 2025/10/28 00:51:46 [WS] Recebido AuthResponse: account_created (Success: true)
+debug 2025/10/28 00:51:46 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:51:46 [AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.
+debug 2025/10/28 00:51:51 [WS] Publicando no tópico: auth.login
+debug 2025/10/28 00:51:51 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 108 111 103 105 110 95 114 101 115 112 111 110 115 101 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 76 111 103 105 110 32 100 101 32 39 104 116 97 39 32 98 101 109 45 115 117 99 101 100 105 100 111 33 34 44 34 112 108 97 121 101 114 34 58 123 34 105 100 34 58 34 49 99 57 98 97 50 98 53 45 53 51 56 57 45 52 97 99 101 45 56 101 56 100 45 52 99 97 55 55 57 56 55 55 97 49 101 34 44 34 117 115 101 114 110 97 109 101 34 58 34 104 116 97 34 44 34 115 99 111 114 101 34 58 48 44 34 115 101 114 118 101 114 95 105 100 34 58 34 34 44 34 99 114 101 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 49 58 52 54 46 54 53 49 90 34 44 34 117 112 100 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 49 58 52 54 46 54 53 49 90 34 125 125]}
+debug 2025/10/28 00:51:51 [WS] Recebido AuthResponse: login_response (Success: true)
+debug 2025/10/28 00:51:51 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:51:51 [AppModel] Modelo filho agendou um comando (Tick). A escuta será reiniciada na troca de tela.
+debug 2025/10/28 00:51:52 [AppModel] Trocando para Lobby.
+debug 2025/10/28 00:51:57 [WS] Publicando no tópico: auth.create_account
+debug 2025/10/28 00:51:57 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 97 99 99 111 117 110 116 95 99 114 101 97 116 101 100 34 44 34 115 117 99 99 101 115 115 34 58 102 97 108 115 101 44 34 101 114 114 111 114 34 58 34 101 115 116 101 32 117 115 101 114 110 97 109 101 32 106 195 161 32 101 120 105 115 116 101 34 125]}
+debug 2025/10/28 00:51:57 [WS] Recebido AuthResponse: account_created (Success: false)
+debug 2025/10/28 00:51:57 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:51:57 [AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.
+debug 2025/10/28 00:52:00 [WS] Publicando no tópico: auth.login
+debug 2025/10/28 00:52:00 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 108 111 103 105 110 95 114 101 115 112 111 110 115 101 34 44 34 115 117 99 99 101 115 115 34 58 102 97 108 115 101 44 34 101 114 114 111 114 34 58 34 117 115 117 195 161 114 105 111 32 106 195 161 32 101 115 116 195 161 32 108 111 103 97 100 111 34 125]}
+debug 2025/10/28 00:52:00 [WS] Recebido AuthResponse: login_response (Success: false)
+debug 2025/10/28 00:52:00 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:52:00 [AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.
+debug 2025/10/28 00:52:04 [WS] Publicando no tópico: auth.create_account
+debug 2025/10/28 00:52:04 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 97 99 99 111 117 110 116 95 99 114 101 97 116 101 100 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 67 111 110 116 97 32 39 112 101 100 114 111 39 32 99 114 105 97 100 97 32 99 111 109 32 115 117 99 101 115 115 111 33 34 125]}
+debug 2025/10/28 00:52:04 [WS] Recebido AuthResponse: account_created (Success: true)
+debug 2025/10/28 00:52:04 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:52:04 [AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.
+debug 2025/10/28 00:52:06 [WS] Publicando no tópico: auth.login
+debug 2025/10/28 00:52:06 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 108 111 103 105 110 95 114 101 115 112 111 110 115 101 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 76 111 103 105 110 32 100 101 32 39 112 101 100 114 111 39 32 98 101 109 45 115 117 99 101 100 105 100 111 33 34 44 34 112 108 97 121 101 114 34 58 123 34 105 100 34 58 34 53 55 100 57 57 51 102 54 45 55 100 49 99 45 52 48 97 55 45 57 56 56 53 45 99 51 101 51 57 51 49 98 97 51 97 102 34 44 34 117 115 101 114 110 97 109 101 34 58 34 112 101 100 114 111 34 44 34 115 99 111 114 101 34 58 48 44 34 115 101 114 118 101 114 95 105 100 34 58 34 34 44 34 99 114 101 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 50 58 48 52 46 48 53 55 90 34 44 34 117 112 100 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 50 58 48 52 46 48 53 55 90 34 125 125]}
+debug 2025/10/28 00:52:06 [WS] Recebido AuthResponse: login_response (Success: true)
+debug 2025/10/28 00:52:06 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:52:06 [AppModel] Modelo filho agendou um comando (Tick). A escuta será reiniciada na troca de tela.
+debug 2025/10/28 00:52:07 [AppModel] Trocando para Lobby.
+debug 2025/10/28 00:53:50 Iniciando TUI...
+debug 2025/10/28 00:53:50 [WS] Conectado! Aguardando ClientID...
+debug 2025/10/28 00:53:50 [WS] ClientID recebido: b080fef6-b903-4a25-9194-019536c4f5aa
+debug 2025/10/28 00:53:50 [AppModel] Inscrevendo-se em: response.b080fef6-b903-4a25-9194-019536c4f5aa
+debug 2025/10/28 00:53:50 [WS] Inscrevendo no tópico: response.b080fef6-b903-4a25-9194-019536c4f5aa
+debug 2025/10/28 00:53:50 [WS] Mensagem bruta recebida: {Type:subscribed ClientID: Topic:response.b080fef6-b903-4a25-9194-019536c4f5aa Data:[]}
+debug 2025/10/28 00:53:50 [AppModel] NoOp recebido. Reiniciando escuta.
+debug 2025/10/28 00:53:57 [WS] Publicando no tópico: auth.create_account
+debug 2025/10/28 00:53:57 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 97 99 99 111 117 110 116 95 99 114 101 97 116 101 100 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 67 111 110 116 97 32 39 49 50 51 39 32 99 114 105 97 100 97 32 99 111 109 32 115 117 99 101 115 115 111 33 34 125]}
+debug 2025/10/28 00:53:57 [WS] Recebido AuthResponse: account_created (Success: true)
+debug 2025/10/28 00:53:57 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:53:57 [AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.
+debug 2025/10/28 00:54:00 [WS] Publicando no tópico: auth.login
+debug 2025/10/28 00:54:00 [WS] Mensagem bruta recebida: {Type: ClientID: Topic:response Data:[123 34 116 121 112 101 34 58 34 108 111 103 105 110 95 114 101 115 112 111 110 115 101 34 44 34 115 117 99 99 101 115 115 34 58 116 114 117 101 44 34 109 101 115 115 97 103 101 34 58 34 76 111 103 105 110 32 100 101 32 39 49 50 51 39 32 98 101 109 45 115 117 99 101 100 105 100 111 33 34 44 34 112 108 97 121 101 114 34 58 123 34 105 100 34 58 34 57 50 54 57 54 49 55 99 45 55 57 52 100 45 52 97 50 50 45 57 55 57 50 45 100 98 49 100 56 101 53 49 100 98 57 99 34 44 34 117 115 101 114 110 97 109 101 34 58 34 49 50 51 34 44 34 115 99 111 114 101 34 58 48 44 34 115 101 114 118 101 114 95 105 100 34 58 34 34 44 34 99 114 101 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 51 58 53 55 46 56 57 53 90 34 44 34 117 112 100 97 116 101 100 95 97 116 34 58 34 50 48 50 53 45 49 48 45 50 56 84 48 51 58 53 51 58 53 55 46 56 57 53 90 34 125 125]}
+debug 2025/10/28 00:54:00 [WS] Recebido AuthResponse: login_response (Success: true)
+debug 2025/10/28 00:54:00 [AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...
+debug 2025/10/28 00:54:00 [AppModel] Modelo filho agendou um comando (Tick). A escuta será reiniciada na troca de tela.
+debug 2025/10/28 00:54:01 [AppModel] Trocando para Lobby.

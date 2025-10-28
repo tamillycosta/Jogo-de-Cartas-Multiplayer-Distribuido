@@ -1,118 +1,95 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
-	"time"
+	"os"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
-
-func main() {
-	// Conecta 2 clientes
-	client1 := connectClient("MILLY")
-	client2 := connectClient("MILLY2")
-
-	time.Sleep(1 * time.Second)
-
-	// Login
-	login(client1, "MILLY")
-	login(client2, "MILLY2")
-
-	time.Sleep(500 * time.Millisecond)
-
-	// Inscreve nos tópicos de resposta
-	subscribe(client1, client1.clientID)
-	subscribe(client2, client2.clientID)
-
-	// Entra na fila
-	fmt.Println("\n=== ENTRANDO NA FILA ===")
-	joinQueue(client1)
-	joinQueue(client2)
-
-	// Aguarda match
-	time.Sleep(4 * time.Second)
-
-	if client1.matchID != "" {
-		fmt.Println("\n=== PARTIDA ENCONTRADA ===")
-		fmt.Printf("Match ID: %s\n", client1.matchID)
-
-		// Inscreve no tópico da partida
-		subscribe(client1, "match."+client1.matchID)
-		subscribe(client2, "match."+client2.matchID)
-
-		time.Sleep(1 * time.Second)
-
-		// ✅ CORRIGIDO: Agora vamos ver quem começa
-		// Aguardar game_update com match_started para ver current_turn
-		time.Sleep(2 * time.Second)
-
-		// Player que começa escolhe carta
-		fmt.Println("\n=== TURNO 1: ESCOLHER CARTAS ===")
-		chooseCard(client2, "0")
-		time.Sleep(1 * time.Second)
-
-		chooseCard(client1, "0")
-		time.Sleep(1 * time.Second)
-
-		// ✅ CORRIGIDO: Agora seguimos a ordem de turnos
-		fmt.Println("\n=== TURNO 2: ATAQUES ===")
-		attack(client2)
-		time.Sleep(1 * time.Second)
-
-		attack(client1)
-		time.Sleep(1 * time.Second)
-		
-		// ✅ ESPERA match_ended chegar
-		fmt.Println("\n⏳ Aguardando resultado da partida...")
-		time.Sleep(10 * time.Second)
-		
-		fmt.Println("\n=== FIM DO TESTE ===")
-	} else {
-		fmt.Println("❌ Match não foi criado!")
-	}
-
-	client1.conn.Close()
-	client2.conn.Close()
-}
 
 type Client struct {
 	conn     *websocket.Conn
 	clientID string
 	matchID  string
-	name     string
+	username string
 }
 
-func connectClient(name string) *Client {
+func main() {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("🌐 Conectando ao servidor WebSocket...")
+
 	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ws", nil)
 	if err != nil {
 		log.Fatal("Erro ao conectar:", err)
 	}
 
-	client := &Client{
-		conn: conn,
-		name: name,
-	}
+	client := &Client{conn: conn}
 
-	// Recebe mensagem de conexão
-	var connMsg map[string]interface{}
-	conn.ReadJSON(&connMsg)
-	client.clientID = connMsg["client_id"].(string)
-
-	fmt.Printf("✅ %s conectado | ClientID: %s\n", name, client.clientID)
+	// Recebe client_id
+	var msg map[string]interface{}
+	conn.ReadJSON(&msg)
+	client.clientID = msg["client_id"].(string)
+	fmt.Printf("✅ Conectado! ClientID: %s\n", client.clientID)
 
 	// Goroutine para receber mensagens
-	go client.receiveMessages()
+	go client.listen()
 
-	return client
+	// Login
+	fmt.Print("\nDigite seu nome de usuário: ")
+	username, _ := reader.ReadString('\n')
+	username = strings.TrimSpace(username)
+	client.username = username
+	client.login(username)
+
+	client.subscribe("response." + client.clientID)
+
+	fmt.Println("\nComandos disponíveis:")
+	fmt.Println("  queue        → entrar na fila")
+	fmt.Println("  play [index] → jogar carta")
+	fmt.Println("  attack       → atacar")
+	fmt.Println("  exit         → sair")
+
+	for {
+		fmt.Print("> ")
+		cmdLine, _ := reader.ReadString('\n')
+		cmdLine = strings.TrimSpace(cmdLine)
+		parts := strings.Split(cmdLine, " ")
+
+		if len(parts) == 0 {
+			continue
+		}
+
+		switch parts[0] {
+		case "queue":
+			client.joinQueue()
+		case "play":
+			if len(parts) < 2 {
+				fmt.Println("Uso: play [index]")
+				continue
+			}
+			client.playCard(parts[1])
+		case "attack":
+			client.attack()
+		case "exit":
+			fmt.Println("👋 Saindo...")
+			client.conn.Close()
+			return
+		default:
+			fmt.Println("❌ Comando inválido.")
+		}
+	}
 }
 
-func (c *Client) receiveMessages() {
+func (c *Client) listen() {
 	for {
 		var msg map[string]interface{}
 		err := c.conn.ReadJSON(&msg)
 		if err != nil {
-			fmt.Printf("🔌 [%s] Desconectado\n", c.name)
+			fmt.Println("🔌 Conexão encerrada:", err)
 			return
 		}
 
@@ -120,87 +97,69 @@ func (c *Client) receiveMessages() {
 
 		switch msgType {
 		case "queue_joined":
-			queueSize := msg["queue_size"]
-			fmt.Printf("📥 [%s] Entrou na fila | Tamanho: %.0f\n", c.name, queueSize)
+			fmt.Printf("📥 Entrou na fila | Tamanho: %.0f\n", msg["queue_size"])
+			
 
 		case "match_found":
-			matchID, _ := msg["match_id"].(string)
-			topic, _ := msg["topic"].(string)
+			c.matchID, _ = msg["match_id"].(string)
 			opponent, _ := msg["opponent"].(string)
+			topic, _ := msg["topic"].(string)
+			fmt.Printf("\n🎯 Partida encontrada!\nMatchID: %s\nOponente: %s\nTópico: %s\n", c.matchID, opponent, topic)
+			c.subscribe(topic)
 			
-			c.matchID = matchID
-			
-			fmt.Printf("📥 [%s] Match encontrado!\n", c.name)
-			fmt.Printf("   Match ID: %s\n", matchID)
-			fmt.Printf("   Oponente: %s\n", opponent)
-			fmt.Printf("   Tópico: %s\n", topic)
-			
-			// Auto-subscribe
-			c.subscribeToTopic(topic)
-			fmt.Printf("📌 [%s] Auto-inscrito em: %s\n", c.name, topic)
-			
-			// Mostra deck
-			if deck, ok := msg["your_deck"].([]interface{}); ok {
-				fmt.Printf("🃏 [%s] Seu deck (%d cartas):\n", c.name, len(deck))
-				for _, card := range deck {
-					cardMap := card.(map[string]interface{})
-					fmt.Printf("   [%v] %s (Power: %v, HP: %v)\n", 
-						cardMap["index"], cardMap["name"], 
-						cardMap["power"], cardMap["health"])
+		case "match_started":
+			eventType, _ := msg["event_type"].(string)
+			fmt.Printf("\n🎮 Game Update recebido: %s\n", eventType)
+
+			if eventType == "match_started" {
+				if gameState, ok := msg["game_state"].(map[string]interface{}); ok {
+					currentTurn, _ := gameState["current_turn"].(string)
+					fmt.Printf("🟢 Partida iniciada! Current Turn: %s\n", currentTurn)
+				} else {
+					fmt.Println("⚠️ match_started chegou SEM game_state!")
 				}
 			}
 
 		case "game_update":
 			eventType, _ := msg["event_type"].(string)
-			fmt.Printf("📥 [%s] Game Update: %s\n", c.name, eventType)
+			fmt.Printf("\n🎮 Game Update recebido: %s\n", eventType)
 
 			if eventType == "match_started" {
-				// ✅ Validar se game_state existe
 				if gameState, ok := msg["game_state"].(map[string]interface{}); ok {
 					currentTurn, _ := gameState["current_turn"].(string)
-					fmt.Printf("🎮 [%s] Partida INICIADA! Current Turn: %s\n", c.name, currentTurn)
+					fmt.Printf("🟢 Partida iniciada! Current Turn: %s\n", currentTurn)
+				} else {
+					fmt.Println("⚠️ match_started chegou SEM game_state!")
 				}
 			}
 
 			if eventType == "action_performed" {
-				// ✅ Validar se game_state existe
 				if gameState, ok := msg["game_state"].(map[string]interface{}); ok {
 					currentTurn, _ := gameState["current_turn"].(string)
 					turnNum, _ := gameState["turn_number"].(float64)
-					fmt.Printf("   Turn #%.0f | Current: %s\n", turnNum, currentTurn)
-				} else {
-					fmt.Printf("   ⚠️ Estado não recebido\n")
+					fmt.Printf("🔁 Turno %.0f | Jogador atual: %s\n", turnNum, currentTurn)
 				}
 			}
 
 			if eventType == "match_ended" {
-				fmt.Printf("🏆 [%s] Partida FINALIZADA!\n", c.name)
+				fmt.Println("🏆 Partida FINALIZADA!")
 			}
-			
-			if eventType == "host_changed" {
-				fmt.Printf("🔄 [%s] Servidor foi promovido a HOST!\n", c.name)
-			}
-
-		case "error":
-			errorMsg, _ := msg["error"].(string)
-			fmt.Printf("[%s] Erro: %s\n", c.name, errorMsg)
 
 		case "subscribed":
 			topic, _ := msg["topic"].(string)
-			fmt.Printf(" [%s] Inscrito em: %s\n", c.name, topic)
+			fmt.Printf("📌 Inscrito em tópico: %s\n", topic)
+
+		case "error":
+			fmt.Println("❌ Erro:", msg["error"])
+
+		default:
+			b, _ := json.MarshalIndent(msg, "", "  ")
+			fmt.Printf("📩 Mensagem desconhecida:\n%s\n", string(b))
 		}
 	}
 }
 
-func (c *Client) subscribeToTopic(topic string) {
-	msg := map[string]interface{}{
-		"type":  "subscribe",
-		"topic": topic,
-	}
-	c.conn.WriteJSON(msg)
-}
-
-func login(c *Client, username string) {
+func (c *Client) login(username string) {
 	msg := map[string]interface{}{
 		"type":  "publish",
 		"topic": "auth.login",
@@ -209,41 +168,51 @@ func login(c *Client, username string) {
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("🔐 [%s] Login enviado\n", c.name)
+	fmt.Printf("🔐 Login enviado para '%s'\n", username)
 }
 
-func subscribe(c *Client, topic string) {
+func (c *Client) subscribe(topic string) {
 	msg := map[string]interface{}{
 		"type":  "subscribe",
-		"topic": "response." + topic,
+		"topic": topic,
 	}
 	c.conn.WriteJSON(msg)
 }
 
-func joinQueue(c *Client) {
+func (c *Client) joinQueue() {
 	msg := map[string]interface{}{
 		"type":  "publish",
 		"topic": "match.join_queue",
 		"data":  map[string]interface{}{},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("🎮 [%s] Entrando na fila...\n", c.name)
+	fmt.Println("🎮 Entrando na fila...")
+
+	
 }
 
-func chooseCard(c *Client, cardIndex string) {
+func (c *Client) playCard(index string) {
+	if c.matchID == "" {
+		fmt.Println("⚠️ Nenhuma partida ativa!")
+		return
+	}
 	msg := map[string]interface{}{
 		"type":  "publish",
 		"topic": "match.play_card",
 		"data": map[string]interface{}{
 			"match_id":   c.matchID,
-			"card_index": cardIndex,
+			"card_index": index,
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("🃏 [%s] Escolhendo carta %s\n", c.name, cardIndex)
+	fmt.Printf("🃏 Jogando carta %s\n", index)
 }
 
-func attack(c *Client) {
+func (c *Client) attack() {
+	if c.matchID == "" {
+		fmt.Println("⚠️ Nenhuma partida ativa!")
+		return
+	}
 	msg := map[string]interface{}{
 		"type":  "publish",
 		"topic": "match.attack",
@@ -253,5 +222,6 @@ func attack(c *Client) {
 		},
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Printf("⚔️ [%s] Atacando!\n", c.name)
+	fmt.Println("⚔️ Atacando!")
+
 }

@@ -6,6 +6,7 @@ import (
     "log"
     "sync"
     "github.com/gorilla/websocket"
+    "fmt"
 )
 
 type Broker struct {
@@ -35,6 +36,28 @@ func (b *Broker) Subscribe(clientID, topic string, conn *websocket.Conn) {
     
     log.Printf("Client %s se inscreveu no topic: %s", clientID, topic)
 }
+
+
+
+func (b *Broker) SubscribeClient(clientID, topic string) error {
+    b.mu.Lock()
+    defer b.mu.Unlock()
+    
+    conn, exists := b.connections[clientID]
+    if !exists {
+        return fmt.Errorf("cliente %s não encontrado", clientID)
+    }
+    
+    if b.topics[topic] == nil {
+        b.topics[topic] = make(map[string]*websocket.Conn)
+    }
+    
+    b.topics[topic][clientID] = conn
+    
+    log.Printf("[Broker] Cliente %s inscrito automaticamente em: %s", clientID, topic)
+    return nil
+}
+
 
 
 // Cliente cancela inscrição

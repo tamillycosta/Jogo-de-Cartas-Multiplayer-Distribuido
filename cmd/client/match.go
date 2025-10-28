@@ -201,7 +201,7 @@ func (c *Client) showTurnInfo() {
 	
 	if isMyTurn {
 		fmt.Println("\n🎯 É SEU TURNO!")
-		fmt.Println("💡 Comandos: card <index> | attack | help")
+		fmt.Println("💡 Comandos: card <index> | attack | | leave | help ")
 	} else {
 		fmt.Println("\n⏳ Aguardando turno do oponente...")
 	}

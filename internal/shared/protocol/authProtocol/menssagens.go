@@ -4,22 +4,22 @@ package authprotocol
 
 // Request de criar conta (publicação do cliente)
 type CreateAccountRequest struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
-    Nome     string `json:"nome"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Nome     string `json:"nome"`
 }
 
 // Request de login
 type LoginRequest struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
-//  Resposta de autenticação (reply)
+// Resposta de autenticação (reply)
 type AuthResponse struct {
-    Type    string      `json:"type"`
-    Success bool        `json:"success"`
-    Message string      `json:"message,omitempty"`
-    Error   string      `json:"error,omitempty"`
-    Player  interface{} `json:"player,omitempty"`
+	Type    string      `json:"type"`
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	Error   string      `json:"error,omitempty"`
+	Player  interface{} `json:"player,omitempty"`
 }

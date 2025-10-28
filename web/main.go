@@ -223,21 +223,24 @@ func (c *Client) receiveMessages() {
 			fmt.Printf("[%s] Entrou na fila\n", c.name)
 
 		case "match_found":
-			matchID, _ := msg["match_id"].(string)
-			c.matchID = matchID
-			
-			if playerID, ok := msg["player_id"].(string); ok && playerID != "" {
-				c.myPlayerID = playerID
-				fmt.Printf("✅ [%s] PlayerID obtido: %s\n", c.name, playerID)
+			c.matchID, _ = msg["match_id"].(string)
+			opponent, _ := msg["opponent"].(string)
+			topic, _ := msg["topic"].(string)
+			fmt.Printf("\n🎯 Partida encontrada!\nMatchID: %s\nOponente: %s\nTópico: %s\n", c.matchID, opponent, topic)
+		
+			// Auto-subscribe se "auto_subscribe" == true
+			if autoSub, ok := msg["auto_subscribe"].(bool); ok && autoSub {
+				c.subscribeToTopic(topic)
+				fmt.Printf("📌 Auto-inscrito em: %s\n", topic)
 			}
 			
-			fmt.Printf("[%s] Match encontrado! ID: %s\n", c.name, matchID)
+			fmt.Printf("[%s] Match encontrado! ID: %s\n", c.name, c.matchID)
 
 			if deck, ok := msg["your_deck"].([]interface{}); ok && len(deck) > 0 {
 				fmt.Printf("[%s] Deck: %d cartas\n", c.name, len(deck))
 			}
 
-			c.subscribeToTopic("match." + matchID)
+			
 
 		case "game_update":
 			eventType, _ := msg["event_type"].(string)
@@ -336,6 +339,7 @@ func joinQueue(c *Client) {
 		"data":  map[string]interface{}{},
 	}
 	c.conn.WriteJSON(msg)
+	
 }
 
 func chooseCard(c *Client, cardIndex string) {

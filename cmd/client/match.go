@@ -50,8 +50,7 @@ func (c *Client) handleGameUpdate(msg map[string]interface{}) {
 		return
 	}
 
-	// ✅ DEBUG: Veja qual evento está chegando
-	log.Printf("[DEBUG] Evento recebido: %s", eventType)
+	
 
 	previousTurn := c.currentTurn
 	
@@ -86,7 +85,7 @@ func (c *Client) handleGameUpdate(msg map[string]interface{}) {
 		c.inMatch = false
 		c.showMatchEnded(gameState)
 
-	case "action_performed", "state_updated":  // ✅ Trata ambos eventos
+	case "action_performed", "state_updated": 
 		if previousTurn != c.currentTurn {
 			fmt.Println("\n🔄 ═══ TURNO TROCADO ═══")
 		}
@@ -94,7 +93,7 @@ func (c *Client) handleGameUpdate(msg map[string]interface{}) {
 		c.showTurnInfo()
 
 	default:
-		// ✅ Mostra evento desconhecido
+		
 		fmt.Printf("\n🔔 [%s] Turno %d\n", eventType, c.turnNumber)
 		c.showGameState(gameState)
 		c.showTurnInfo()
@@ -125,7 +124,7 @@ func (c *Client) showGameState(gameState map[string]interface{}) {
 		cardPower := 0.0
 		cardHealth := 0.0
 
-		// ✅ FIX: Código limpo, sem duplicação
+		
 		if card, ok := myPlayer["current_card"].(map[string]interface{}); ok && card != nil {
 			if name, ok := card["name"].(string); ok {
 				cardName = name
@@ -169,7 +168,7 @@ func (c *Client) showGameState(gameState map[string]interface{}) {
 		cardPower := 0.0
 		cardHealth := 0.0
 
-		// ✅ FIX: Mesmo código limpo
+		
 		if card, ok := opponent["current_card"].(map[string]interface{}); ok && card != nil {
 			if name, ok := card["name"].(string); ok {
 				cardName = name

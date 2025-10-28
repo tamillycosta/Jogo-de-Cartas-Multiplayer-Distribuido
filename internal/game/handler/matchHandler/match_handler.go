@@ -163,7 +163,6 @@ func (h *MatchTopicHandler) handleAttack(clientID string, data interface{}) erro
 
 
 
-
 func (h *MatchTopicHandler) handleLeaveMatch(clientID string, data interface{}) error {
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {

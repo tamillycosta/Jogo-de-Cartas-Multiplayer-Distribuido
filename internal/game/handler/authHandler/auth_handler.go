@@ -150,10 +150,10 @@ func (h *AuthTopicHandler) handleLogout(clientID string) error {
 
 // Envia resposta de sucesso para o cliente
 func (h *AuthTopicHandler) publishResponse(clientID string, response interface{}) {
-	responseTopic := fmt.Sprintf("auth.response.%s", clientID)
+	responseTopic := fmt.Sprintf("response.%s", clientID)
 	
 	h.broker.Publish(responseTopic, map[string]interface{}{
-		"topic": "auth.response",
+		"topic": "response",
 		"data":  response,
 	})
 	

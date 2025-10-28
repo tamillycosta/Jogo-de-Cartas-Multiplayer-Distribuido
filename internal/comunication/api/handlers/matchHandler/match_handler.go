@@ -123,8 +123,16 @@ func (h *MatchHandler) HandleMatchSync(ctx *gin.Context) {
 		return
 	}
 
-	log.Printf("[MatchHandler] Sincronização recebida: %s | Turn: %s | TurnNum: %d | Status: %s", 
-		update.MatchID, update.CurrentTurnPlayerID, update.TurnNumber, update.Status)
+	//  LOGS DETALHADOS de debuh
+	log.Printf("   [MatchHandler] SYNC RECEBIDO:")
+	log.Printf("   MatchID: %s", update.MatchID)
+	log.Printf("   Turn: %d | CurrentTurn: %s", update.TurnNumber, update.CurrentTurnPlayerID)
+	log.Printf("   Status: %s", update.Status)
+	log.Printf("   LocalPlayerLife: %d | HasCard: %v", 
+		update.LocalPlayerLife, update.LocalPlayerCurrentCard != nil)
+	log.Printf("   RemotePlayerLife: %d | HasCard: %v", 
+		update.RemotePlayerLife, update.RemotePlayerCurrentCard != nil)
+
 
 	
 	ctx.JSON(http.StatusAccepted, gin.H{"status": "sync received"})
@@ -133,7 +141,7 @@ func (h *MatchHandler) HandleMatchSync(ctx *gin.Context) {
 		if err := h.sessionManager.ReceiveRemoteSync(update.MatchID, update); err != nil {
 			log.Printf("[MatchHandler] Erro ao processar sync: %v", err)
 		} else {
-			log.Printf("[MatchHandler] Sincronização processada")
+			log.Printf("[MatchHandler] Sincronização processada com sucesso")
 		}
 	}()
 }
@@ -154,7 +162,7 @@ func (h *MatchHandler) HandleMatchAction(ctx *gin.Context) {
 		return
 	}
 
-	log.Printf("🎮 [MatchHandler] Ação recebida:")
+	log.Printf(" [MatchHandler] Ação recebida:")
 	log.Printf("   MatchID: %s", req.MatchID)
 	log.Printf("   PlayerID: %s", req.PlayerID)
 	log.Printf("   Action Type: %s", req.Action.Type)

@@ -6,7 +6,7 @@ services:
     image: mysql:8.0
     container_name: mysql-a
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_A:- }
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD_A:-rootpass}
       MYSQL_DATABASE: ${DB_NAME_A:-gamedb}
     volumes:
       - mysql_data_a:/var/lib/mysql

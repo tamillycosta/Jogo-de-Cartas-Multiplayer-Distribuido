@@ -27,8 +27,25 @@ type AuthResponseData struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
 	Error   string      `json:"error,omitempty"`
-	Player  interface{} `json:"player,omitempty"`
+	// --- MODIFICAÇÃO AQUI ---
+	// Precisamos capturar o ID do jogador no login
+	Player  struct {
+		ID string `json:"id"`
+	} `json:"player,omitempty"`
+	// --- FIM DA MODIFICAÇÃO ---
 }
+
+// --- NOVA ESTRUTURA ---
+// PackageResponseData é a estrutura aninhada para respostas de pacote
+// (Baseado em internal/shared/protocol/packageProtocol/messagens.go)
+type PackageResponseData struct {
+	Type    string `json:"type"` // "package_opend" ou "package.open_pack"
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+// --- FIM DA NOVA ESTRUTURA ---
+
 
 // --- Mensagens Internas do Bubble Tea (tea.Msg) ---
 
@@ -39,6 +56,13 @@ type ConnectedMsg struct {
 
 // AuthResponseMsg é enviada quando recebemos uma resposta de auth
 type AuthResponseMsg struct {
+	Success bool
+	Message string
+	Error   string
+	PlayerID string // Passa o ID do jogador para o AppModel
+}
+
+type PackageResponseMsg struct {
 	Success bool
 	Message string
 	Error   string

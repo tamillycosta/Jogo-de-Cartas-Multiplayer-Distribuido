@@ -1,187 +1,211 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "os"
+	"fmt"
+	"log"
+	"os"
 
-    tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 
-    // Ajuste os caminhos de importação para o nome do seu módulo
-    "Jogo-de-Cartas-Multiplayer-Distribuido/cmd/tui/comm"
-    "Jogo-de-Cartas-Multiplayer-Distribuido/cmd/tui/models"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/cmd/tui/comm"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/cmd/tui/models"
 )
 
-// AppModel é o modelo principal que gerencia as telas E a conexão
 type AppModel struct {
-    client       *comm.Client // Nosso cliente WebSocket
-    currentModel tea.Model
-    width        int
-    height       int
-    status       string // Status global (conectando, conectado, erro)
+	client       *comm.Client
+	currentModel tea.Model
+	width        int
+	height       int
+	status       string
+	PlayerID     string
 }
 
 func initialModel() AppModel {
-    // Conecta em qualquer servidor, o backend cuida do resto
-    // (Baseado no seu docker-compose.yml)
-    client := comm.NewClient("ws://localhost:8080/ws")
+	client := comm.NewClient("ws://localhost:8080/ws")
 
-    return AppModel{
-        client:       client,
-        currentModel: models.NewMenu(), //
-        width:        80,
-        height:       24,
-        status:       "Conectando...",
-    }
+	return AppModel{
+		client:       client,
+		currentModel: models.NewMenu(),
+		width:        80,
+		height:       24,
+		status:       "Conectando...",
+	}
 }
 
 func (m AppModel) Init() tea.Cmd {
-    // Combina o Init do modelo atual com o início da conexão
-    return tea.Batch(m.currentModel.Init(), m.client.Connect())
+	return tea.Batch(m.currentModel.Init(), m.client.Connect())
 }
 
-// --- FUNÇÃO UPDATE MODIFICADA PARA O LOOP DE RE-ESCUTA ---
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    var cmd tea.Cmd
-    var cmds []tea.Cmd
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
 
-    switch msg := msg.(type) {
+	switch msg := msg.(type) {
 
-    // --- Ciclo de Vida da Conexão ---
-    case comm.ConnectedMsg:
-        m.status = fmt.Sprintf("Conectado! (ID: %s)", msg.ClientID)
-        
-        // *** CORREÇÃO AQUI ***
-        // O tópico de resposta do servidor é "response.<id>", não "auth.response.<id>"
-        responseTopic := fmt.Sprintf("response.%s", msg.ClientID) 
-        log.Printf("[AppModel] Inscrevendo-se em: %s", responseTopic)
+	// --- Ciclo de Vida da Conexão ---
+	case comm.ConnectedMsg:
+		m.status = fmt.Sprintf("Conectado! (ID: %s)", msg.ClientID)
+		
+		responseTopic := fmt.Sprintf("response.%s", msg.ClientID) // Tópico de Auth (provado pelo seu log)
+		packageTopic := fmt.Sprintf("package.response.%s", msg.ClientID) // Tópico de Pacote (provado pelo backend)
+		
+		log.Printf("[AppModel] Inscrevendo-se em: %s e %s", responseTopic, packageTopic)
 
-        cmds = append(cmds,
-            m.client.Subscribe(responseTopic),
-            m.client.Listen(), // Inicia a *primeira* escuta
-        )
+		// --- CORREÇÃO DO PÂNICO: Use tea.Sequence ---
+		// Executa os comandos de *escrita* (Subscribe) em ordem,
+		// e só no fim inicia a *leitura* (Listen).
+		cmds = append(cmds, tea.Sequence(
+			m.client.Subscribe(responseTopic),
+			m.client.Subscribe(packageTopic),
+			m.client.Listen(),
+		))
+		// --- FIM DA CORREÇÃO ---
 
-    case comm.ErrorMsg:
-        m.status = fmt.Sprintf("Erro de Conexão: %v", msg.Err)
-        // Para de escutar em caso de erro
+	case comm.ErrorMsg:
+		m.status = fmt.Sprintf("Erro de Conexão: %v", msg.Err)
 
-    // --- Roteamento de Ações dos Modelos ---
-    case models.DoRegisterMsg:
-        m.status = "Registrando..."
-        // O AppModel é quem publica, usando seu client
-        cmds = append(cmds, m.client.Publish(
-            "auth.create_account", // Tópico de cadastro
-            map[string]string{"username": msg.Username}, // Payload
-        ))
+	// --- Roteamento de Ações dos Modelos ---
+	case models.DoRegisterMsg:
+		m.status = "Registrando..."
+		// --- CORREÇÃO DO TRAVAMENTO: Re-adiciona o Listen() ---
+		// Publicar (escrita) e Escutar (leitura) em paralelo é SEGURO.
+		cmds = append(cmds,
+			m.client.Publish(
+				"auth.create_account",
+				map[string]string{"username": msg.Username},
+			),
+			m.client.Listen(), // <-- Essencial para não ficar "surdo"
+		)
+		// --- FIM DA CORREÇÃO ---
 
-    case models.DoLoginMsg:
-        m.status = "Fazendo login..."
-        cmds = append(cmds, m.client.Publish(
-            "auth.login",
-            map[string]string{"username": msg.Username},
-        ))
+	case models.DoLoginMsg:
+		m.status = "Fazendo login..."
+		// --- CORREÇÃO DO TRAVAMENTO: Re-adiciona o Listen() ---
+		cmds = append(cmds,
+			m.client.Publish(
+				"auth.login",
+				map[string]string{"username": msg.Username},
+			),
+			m.client.Listen(), // <-- Essencial para não ficar "surdo"
+		)
+		// --- FIM DA CORREÇÃO ---
 
-    // --- Troca de Telas ---
-    case models.SwitchToLoginMsg:
-        m.currentModel = models.NewLogin()
-        m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
-        cmds = append(cmds, cmd)
-        // *** CORREÇÃO AQUI ***
-        // Reinicia a escuta ao chegar na tela de login
-        cmds = append(cmds, m.client.Listen())
+	case models.DoOpenPackageMsg:
+		if m.PlayerID == "" {
+			log.Println("[AppModel] Erro: Tentativa de abrir pacote sem PlayerID!")
+			cmds = append(cmds, func() tea.Msg {
+				return comm.PackageResponseMsg{Success: false, Error: "Erro: PlayerID não encontrado."}
+			})
+		} else {
+			log.Printf("[AppModel] Publicando 'package.open_pack' para PlayerID: %s", m.PlayerID)
+			// --- CORREÇÃO DO TRAVAMENTO: Re-adiciona o Listen() ---
+			cmds = append(cmds,
+				m.client.Publish(
+					"package.open_pack",
+					map[string]string{"player_id": m.PlayerID},
+				),
+				m.client.Listen(), // <-- Essencial para não ficar "surdo"
+			)
+			// --- FIM DA CORREÇÃO ---
+		}
 
+	// --- Troca de Telas ---
+	// (Precisa de Listen() para iniciar o loop na nova tela)
+	case models.SwitchToLoginMsg:
+		m.currentModel = models.NewLogin()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.client.Listen())
 
-    case models.SwitchToCadastroMsg:
-        m.currentModel = models.NewCadastro()
-        m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
-        cmds = append(cmds, cmd)
-        // Reinicia a escuta ao chegar na tela de cadastro
-        cmds = append(cmds, m.client.Listen())
+	case models.SwitchToCadastroMsg:
+		m.currentModel = models.NewCadastro()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.client.Listen())
 
+	case models.SwitchToMenuMsg:
+		m.currentModel = models.NewMenu()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.client.Listen())
 
-    case models.SwitchToMenuMsg:
-        m.currentModel = models.NewMenu() //
-        m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
-        cmds = append(cmds, cmd)
-         // Reinicia a escuta ao voltar para o menu
-        cmds = append(cmds, m.client.Listen())
+	case models.SwitchToLobbyMsg:
+		log.Printf("[AppModel] Trocando para Lobby.")
+		m.currentModel = models.NewLobby()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.client.Listen())
 
-    case models.SwitchToLobbyMsg:
-        log.Printf("[AppModel] Trocando para Lobby.")
-        m.currentModel = models.NewLobby()
-        m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
-        cmds = append(cmds, cmd)
-        // *** CORREÇÃO AQUI ***
-        // Agora que a tela mudou, reinicia a escuta.
-        cmds = append(cmds, m.client.Listen())
+	case models.SwitchToPackageOpeningMsg:
+		log.Printf("[AppModel] Trocando para PackageOpening.")
+		m.currentModel = models.NewPackageOpening()
+		m.currentModel, cmd = m.currentModel.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		cmds = append(cmds, cmd)
+		// O Init() da tela vai disparar DoOpenPackageMsg,
+		// e o 'case DoOpenPackageMsg' (acima) já inclui o Listen().
 
-    // --- MENSAGENS VINDAS DO LISTENER (LOOP) ---
-    case comm.AuthResponseMsg:
-        log.Printf("[AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...")
-        // 1. Passa a mensagem para o modelo filho
-        m.currentModel, cmd = m.currentModel.Update(msg)
-        
-        // cmd será um tea.Tick se o login/cadastro foi SUCESSO
-        // cmd será nil se falhou (ex: "usuário não existe")
-        cmds = append(cmds, cmd)
+	// --- MENSAGENS VINDAS DO LISTENER (LOOP) ---
+	// (Estes reiniciam o loop de escuta)
+	case comm.AuthResponseMsg:
+		log.Printf("[AppModel] Recebida AuthResponseMsg. Repassando para o modelo filho...")
+		
+		if msg.Success && msg.PlayerID != "" {
+			m.PlayerID = msg.PlayerID
+			log.Printf("[AppModel] PlayerID armazenado: %s", m.PlayerID)
+		}
 
-        // 2. *** CORREÇÃO AQUI ***
-        // SÓ RE-INICIA A ESCUTA se o filho NÃO agendou um comando (cmd == nil).
-        // Se o filho agendou (Tick), nós esperamos o Tick disparar
-        // a mensagem de troca de tela (ex: SwitchToLobbyMsg),
-        // e o 'case' dessa mensagem (acima) vai reiniciar a escuta.
-        if cmd == nil {
-            log.Printf("[AppModel] Modelo filho não agendou comandos (ex: login falhou). Reiniciando escuta.")
-            cmds = append(cmds, m.client.Listen())
-        } else {
-             log.Printf("[AppModel] Modelo filho agendou um comando (Tick). A escuta será reiniciada na troca de tela.")
-        }
+		m.currentModel, cmd = m.currentModel.Update(msg)
+		cmds = append(cmds, cmd)
 
-    case comm.NoOpMsg:
-        // 1. Mensagem ignorada (não passa para o filho)
-        // 2. Apenas RE-INICIA A ESCUTA
-        log.Printf("[AppModel] NoOp recebido. Reiniciando escuta.")
-        cmds = append(cmds, m.client.Listen())
+		// Se o filho (login) falhou (cmd == nil), reinicia a escuta.
+		// Se o filho (login) teve sucesso (cmd != nil),
+		// o Tick/SwitchToLobbyMsg tratará de reiniciar a escuta.
+		if cmd == nil {
+			cmds = append(cmds, m.client.Listen())
+		}
 
-    // --- Roteamento Padrão ---
-    default:
-        // Se for tea.KeyMsg, tea.WindowSizeMsg, etc.
-        // passa para o modelo filho.
-        if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
-            m.width = wsMsg.Width
-            m.height = wsMsg.Height
-        }
+	case comm.PackageResponseMsg:
+		log.Printf("[AppModel] Recebida PackageResponseMsg. Repassando para o modelo filho...")
+		m.currentModel, cmd = m.currentModel.Update(msg)
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.client.Listen()) // Continua escutando na tela de resultado
 
-        m.currentModel, cmd = m.currentModel.Update(msg)
-        cmds = append(cmds, cmd)
-    }
+	case comm.NoOpMsg:
+		log.Printf("[AppModel] NoOp recebido. Reiniciando escuta.")
+		cmds = append(cmds, m.client.Listen()) // Continua o loop
 
-    return m, tea.Batch(cmds...)
+	// --- Roteamento Padrão ---
+	default:
+		if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+			m.width = wsMsg.Width
+			m.height = wsMsg.Height
+		}
+
+		m.currentModel, cmd = m.currentModel.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
-
-// --- FIM DA MODIFICAÇÃO ---
 
 func (m AppModel) View() string {
-    // Delega a view para o modelo atual
-    // Poderia adicionar um rodapé com m.status aqui se quisesse
-    return m.currentModel.View()
+	return m.currentModel.View()
 }
 
 func main() {
-    // Habilitar log em arquivo para depuração
-    f, err := tea.LogToFile("tui.log", "debug")
-    if err != nil {
-        fmt.Println("Erro ao criar log:", err)
-        os.Exit(1)
-    }
-    defer f.Close()
+	f, err := tea.LogToFile("tui.log", "debug")
+	if err != nil {
+		fmt.Println("Erro ao criar log:", err)
+		os.Exit(1)
+	}
+	defer f.Close()
 
-    log.Println("Iniciando TUI...")
+	log.Println("Iniciando TUI...")
 
-    p := tea.NewProgram(initialModel())
-    if _, err := p.Run(); err != nil {
-        log.Println("Erro ao rodar programa:", err)
-        fmt.Println("Erro:", err)
-        os.Exit(1)
-    }
+	p := tea.NewProgram(initialModel())
+	if _, err := p.Run(); err != nil {
+		log.Println("Erro ao rodar programa:", err)
+		fmt.Println("Erro:", err)
+		os.Exit(1)
+	}
 }

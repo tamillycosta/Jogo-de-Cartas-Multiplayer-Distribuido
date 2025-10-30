@@ -52,8 +52,7 @@ func (m LobbyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Não implementado
 				return m, nil
 			case 1: // Abrir Pacote
-				// Não implementado
-				return m, nil
+				return m, func() tea.Msg { return SwitchToPackageOpeningMsg{} }
 			case 2: // Trocar Cartas
 				// Não implementado
 				return m, nil

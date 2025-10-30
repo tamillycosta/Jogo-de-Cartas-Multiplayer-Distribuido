@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings" // Precisa do "strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gorilla/websocket"
 )
 
+// ... (Client struct, NewClient, Connect, Listen não mudam) ...
 // Client gerencia a conexão WebSocket
 type Client struct {
 	conn     *websocket.Conn
@@ -21,7 +23,7 @@ func NewClient(url string) *Client {
 	return &Client{URL: url}
 }
 
-// Connect é um tea.Cmd que tenta se conectar ao WebSocket
+// Connect (Função sem alteração)
 func (c *Client) Connect() tea.Cmd {
 	return func() tea.Msg {
 		conn, _, err := websocket.DefaultDialer.Dial(c.URL, nil)
@@ -32,7 +34,6 @@ func (c *Client) Connect() tea.Cmd {
 		c.conn = conn
 		log.Println("[WS] Conectado! Aguardando ClientID...")
 		
-		// O servidor envia o 'connected' msg primeiro
 		var msg ServerMsg
 		if err := c.conn.ReadJSON(&msg); err != nil {
 			return ErrorMsg{fmt.Errorf("erro ao ler msg de conexão: %v", err)}
@@ -48,7 +49,7 @@ func (c *Client) Connect() tea.Cmd {
 	}
 }
 
-// Listen é um tea.Cmd que inicia a escuta de mensagens
+// Listen (Função sem alteração)
 func (c *Client) Listen() tea.Cmd {
 	return func() tea.Msg {
 		if c.conn == nil {
@@ -62,7 +63,6 @@ func (c *Client) Listen() tea.Cmd {
 
 		log.Printf("[WS] Mensagem bruta recebida: %+v", serverMsg)
 
-		// Traduz a mensagem do servidor para uma tea.Msg
 		if msg := c.parseServerMessage(serverMsg); msg != nil {
 			return msg
 		}
@@ -71,11 +71,17 @@ func (c *Client) Listen() tea.Cmd {
 	}
 }
 
-// parseServerMessage traduz uma ServerMsg genérica em uma tea.Msg específica
+
+// --- CORREÇÃO DO PARSE (Ignora "subscribed") ---
 func (c *Client) parseServerMessage(msg ServerMsg) tea.Msg {
 	
-	// *** CORREÇÃO AQUI ***
-	// O log mostra que o tópico da mensagem de resposta é "response"
+	// 1. Ignora mensagens de 'subscribed' para evitar o erro de JSON
+	if msg.Type == "subscribed" {
+		log.Printf("[WS] Confirmação de inscrição recebida para o tópico: %s. Ignorando.", msg.Topic)
+		return nil // Retorna nil, que vira NoOpMsg no Listen()
+	}
+
+	// 2. Verificação de Auth (Baseado no seu log: Topic == "response")
 	if msg.Topic == "response" {
 		var authData AuthResponseData
 		if err := json.Unmarshal(msg.Data, &authData); err != nil {
@@ -85,17 +91,50 @@ func (c *Client) parseServerMessage(msg ServerMsg) tea.Msg {
 		
 		log.Printf("[WS] Recebido AuthResponse: %s (Success: %t)", authData.Type, authData.Success)
 		return AuthResponseMsg{
-			Success: authData.Success,
-			Message: authData.Message,
-			Error:   authData.Error,
+			Success:  authData.Success,
+			Message:  authData.Message,
+			Error:    authData.Error,
+			PlayerID: authData.Player.ID,
 		}
 	}
 	
-	// Retorna nil se não for uma mensagem de auth (será tratado como NoOpMsg)
+	// 3. Verificação de Pacote (Baseado no backend: "package.response.CLIENT_ID")
+	// ✅ SOLUÇÃO 2: Decodificação em duas etapas
+	if strings.HasPrefix(msg.Topic, "package.response.") {
+		// Primeiro, decodifica o wrapper {"topic": "...", "data": {...}}
+		var wrapper struct {
+			Topic string          `json:"topic"`
+			Data  json.RawMessage `json:"data"` // Mantém o JSON interno sem decodificar ainda
+		}
+		
+		if err := json.Unmarshal(msg.Data, &wrapper); err != nil {
+			log.Printf("[WS] Erro ao decodificar wrapper de PackageResponse: %v. Dados brutos: %s", err, string(msg.Data))
+			return ErrorMsg{fmt.Errorf("erro ao decodificar wrapper: %v", err)}
+		}
+		
+		log.Printf("[WS] Wrapper decodificado. Topic interno: %s", wrapper.Topic)
+		
+		// Depois, decodifica a resposta real que está dentro do 'data'
+		var pkgData PackageResponseData
+		if err := json.Unmarshal(wrapper.Data, &pkgData); err != nil {
+			log.Printf("[WS] Erro ao decodificar PackageResponseData: %v. Dados brutos: %s", err, string(wrapper.Data))
+			return ErrorMsg{fmt.Errorf("erro ao decodificar PackageResponseData: %v", err)}
+		}
+
+		log.Printf("[WS] Recebido PackageResponse: %s (Success: %t)", pkgData.Type, pkgData.Success)
+		return PackageResponseMsg{
+			Success: pkgData.Success,
+			Message: pkgData.Message,
+			Error:   pkgData.Error,
+		}
+	}
+
+	// Retorna nil se não for nenhum dos dois
 	return nil
 }
 
-// Subscribe é um tea.Cmd que envia uma mensagem de 'subscribe'
+
+// Subscribe (Função sem alteração)
 func (c *Client) Subscribe(topic string) tea.Cmd {
 	return func() tea.Msg {
 		log.Printf("[WS] Inscrevendo no tópico: %s", topic)
@@ -116,7 +155,7 @@ func (c *Client) Subscribe(topic string) tea.Cmd {
 	}
 }
 
-// Publish é um tea.Cmd que envia uma mensagem de 'publish'
+// Publish (Função sem alteração)
 func (c *Client) Publish(topic string, data interface{}) tea.Cmd {
 	return func() tea.Msg {
 		log.Printf("[WS] Publicando no tópico: %s", topic)
@@ -138,7 +177,7 @@ func (c *Client) Publish(topic string, data interface{}) tea.Cmd {
 	}
 }
 
-// Close fecha a conexão
+// Close (Função sem alteração)
 func (c *Client) Close() {
 	if c.conn != nil {
 		c.conn.Close()

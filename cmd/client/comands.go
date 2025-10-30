@@ -66,6 +66,26 @@ func (c *Client) attack() {
 	fmt.Println("⚔️ Atacando...")
 }
 
+func (c *Client) openPack() {
+	if c.playerID == "" {
+		fmt.Println("❌ Erro: Você precisa fazer login primeiro!")
+		fmt.Println("⚠️ PlayerID não foi definido. Tente fazer login novamente.")
+		return
+	}
+	
+	msg := map[string]interface{}{
+		"type":  "publish",
+		"topic": "package.open_pack",
+		"data": map[string]interface{}{
+			"player_id": c.playerID,
+		},
+	}
+	
+	fmt.Printf("[DEBUG] Enviando openPack com player_id: %s", c.playerID)
+	c.conn.WriteJSON(msg)
+	fmt.Println("\n📦 Abrindo pacote de cartas...")
+}
+
 func (c *Client) leaveMatch() {
 	msg := map[string]interface{}{
 		"type":  "publish",

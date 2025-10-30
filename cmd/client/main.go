@@ -64,6 +64,7 @@ func main() {
 	client.login(username)
 
 	client.subscribe("response." + client.clientID)
+	client.subscribe("package.response." + client.clientID)
 
 	// Aguarda um pouco para processar login
 	fmt.Println("\n⏳ Processando login...")
@@ -88,6 +89,14 @@ func main() {
 		}
 
 		switch parts[0] {
+
+		case "pack", "p":
+			if client.inMatch {
+				fmt.Println("⚠️ Você não pode abrir pacotes durante uma partida!")
+				continue
+			}
+			client.openPack()
+			
 		case "queue", "q":
 			if client.inMatch {
 				fmt.Println("⚠️ Você já está em uma partida!")
@@ -157,6 +166,9 @@ func (c *Client) listen() {
 		case "response":
 			c.handleResponse(msg)
 
+		case "package.response":
+			c.handlePackageResponse(msg)
+
 		case "queue_joined":
 			queueSize, _ := msg["queue_size"].(float64)
 			fmt.Printf("\n✅ Você entrou na fila! (jogadores: %.0f)\n", queueSize)
@@ -204,6 +216,26 @@ func (c *Client) handleResponse(msg map[string]interface{}) {
 				c.playerID = playerID
 			}
 		}
+	}
+}
+
+
+func (c *Client) handlePackageResponse(msg map[string]interface{}) {
+	data, ok := msg["data"].(map[string]interface{})
+	if !ok {
+		fmt.Println("❌ Resposta inválida do servidor")
+		return
+	}
+
+	success, _ := data["success"].(bool)
+	
+	if success {
+		message, _ := data["message"].(string)
+		fmt.Printf("\n✨ %s\n", message)
+		fmt.Println("🎴 Novas cartas adicionadas ao seu deck!")
+	} else {
+		errorMsg, _ := data["error"].(string)
+		fmt.Printf("\n❌ Erro ao abrir pacote: %s\n", errorMsg)
 	}
 }
 

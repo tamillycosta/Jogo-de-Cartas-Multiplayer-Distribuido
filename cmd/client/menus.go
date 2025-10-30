@@ -12,6 +12,7 @@ func (c *Client) showMenu() {
 	fmt.Printf("\n👤 Jogador: %s\n", c.username)
 	fmt.Println("\n📋 Comandos Disponíveis:")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("  pack (p)        → Abrir pacote de cartas")
 	fmt.Println("  queue (q)       → Entrar na fila")
 	fmt.Println("  card <n> (c)    → Jogar carta (ex: card 0)")
 	fmt.Println("  attack (a)      → Atacar com carta ativa")

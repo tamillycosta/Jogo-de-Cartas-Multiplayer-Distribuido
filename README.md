@@ -20,17 +20,22 @@
       ```bash  
         DB_PASSWORD=senha_a
         DB_NAME=game_server_a
-       
+             
 3. Suba o container do servidor:
 
-
-
-4. Para subir cada servidores separadamente use:   
-   ```bash
+4. Para subir cada servidores separadamente use:
+    ```bash
      docker-compose up --build server-a
 
-  
-5.Para subir todos os servidores :   
-   ```bash
-     docker-compose up --build 
+### 🖥️ Acessando como **Cliente**  
+
+1. Siga os passos:
+   ```bash  
+    cd cmd/cliet
+    go run .
+   
+
+
+   
+
    

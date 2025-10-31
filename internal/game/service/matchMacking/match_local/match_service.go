@@ -1,20 +1,22 @@
 package matchlocal
 
-
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+	raftService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
+	"fmt"
 	"log"
 	"sync"
 	"time"
-	raftService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 )
 
-// Gere fila de jogadores para encontrar match local 
+// Gere fila de jogadores para encontrar match local
 type LocalMatchmaking struct {
 	mu          sync.RWMutex
 	localQueue  []*QueueEntry     
 	serverID    string
 	raft         *raftService.RaftService 
 	onTimeout   func(entry *QueueEntry)
+	cardRepo       *repository.CardRepository
 }
 
 type QueueEntry struct {
@@ -24,11 +26,12 @@ type QueueEntry struct {
 	JoinedAt  time.Time
 }
 
-func New(serverID string, raft *raftService.RaftService ) *LocalMatchmaking {
+func New(serverID string, raft *raftService.RaftService, cardRepo *repository.CardRepository ) *LocalMatchmaking {
 	lm := &LocalMatchmaking{
 		localQueue: make([]*QueueEntry, 0),
 		serverID:   serverID,
 		raft: raft,
+		cardRepo: cardRepo,
 	}
 	
 	// loop para temtar 
@@ -46,10 +49,15 @@ func (lm *LocalMatchmaking) SetTimeoutCallback(callback func(entry *QueueEntry))
 
 
 
-func (lm *LocalMatchmaking) AddToQueue(clientID, playerID, username string) {
+func (lm *LocalMatchmaking) AddToQueue(clientID, playerID, username string) error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 	
+	cards, _ := lm.cardRepo.FindByPlayerID(playerID)
+	if(len(cards) == 0){
+		return  fmt.Errorf("você precisa ter cartas no deck para jogar, abra pacotes")
+	}
+
 	lm.removeFromQueueUnsafe(playerID)
 	
 	entry := &QueueEntry{
@@ -63,6 +71,7 @@ func (lm *LocalMatchmaking) AddToQueue(clientID, playerID, username string) {
 	
 	log.Printf("[LocalMatchmaking] Player %s adicionado à fila local (total: %d)", 
 		username, len(lm.localQueue))
+	return nil
 }
 
 func (lm *LocalMatchmaking) RemoveFromQueue(playerID string) {
@@ -159,4 +168,3 @@ func (lm *LocalMatchmaking) onMatchFound(p1, p2 *QueueEntry) {
 		OnLocalMatchFound(p1, p2)
 	}
 }
-

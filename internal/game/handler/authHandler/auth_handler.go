@@ -1,5 +1,4 @@
 package authhandler
-
 import (
 	"fmt"
 	"log"

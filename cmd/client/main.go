@@ -32,7 +32,7 @@ func main() {
 	servers := []string{
 		"ws://localhost:8080/ws",
 		"ws://localhost:8081/ws",
-		"ws://localhost:8081/ws",
+		"ws://localhost:8082/ws",
 	}
 
 	// Sorteia um servidor
@@ -60,11 +60,14 @@ func main() {
 	fmt.Print("\n🎮 Digite seu nome de usuário: ")
 	username, _ := reader.ReadString('\n')
 	username = strings.TrimSpace(username)
-	client.username = username
-	client.login(username)
 
 	client.subscribe("response." + client.clientID)
 	client.subscribe("package.response." + client.clientID)
+
+	client.username = username
+	client.login(username)
+
+	
 
 	// Aguarda um pouco para processar login
 	fmt.Println("\n⏳ Processando login...")

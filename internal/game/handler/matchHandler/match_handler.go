@@ -57,6 +57,8 @@ func (h *MatchTopicHandler) HandleTopic(clientID, topic string, data interface{}
 
 
 
+// ----------------- MATCHMAKING -----------------
+
 
 // ----------------- MATCHMAKING -----------------
 
@@ -78,7 +80,14 @@ func (h *MatchTopicHandler) handleJoinQueue(clientID string, data interface{}) e
 	}
 
 
-	h.localMatchmaking.AddToQueue(clientID, playerID, player.Username)
+	err = h.localMatchmaking.AddToQueue(clientID, playerID, player.Username)
+	if err != nil {
+		// ✅ ERRO: Jogador não tem cartas (ou outro erro)
+		log.Printf("[MatchHandler] Erro ao adicionar %s à fila: %v", player.Username, err)
+		
+		// Envia erro específico para o cliente
+		return h.sendError(clientID, err.Error())
+	}
 
 	response := map[string]interface{}{
 		"type":       "queue_joined",
@@ -91,6 +100,8 @@ func (h *MatchTopicHandler) handleJoinQueue(clientID string, data interface{}) e
 	log.Printf("[MatchHandler] Player %s (%s) adicionado à fila local", player.Username, clientID)
 	return nil
 }
+
+
 
 
 // -------------------------- AÇÕES DE JOGO -----------------------------

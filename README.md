@@ -27,14 +27,14 @@
       
 4. Suba os containers do servidor
    
-Para subir todos os serviços:
-  ```bash  
-     docker compose up --build
-  ```
-Para subir apenas um servidor:
-   ```bash
-      docker compose up --build server-a
-   ```
+   Para subir todos os serviços:
+     ```bash  
+        docker compose up --build
+     ```
+   Para subir apenas um servidor:
+      ```bash
+         docker compose up --build server-a
+      ```
 
 ### 🖥️ Acessando como **Cliente**  
 

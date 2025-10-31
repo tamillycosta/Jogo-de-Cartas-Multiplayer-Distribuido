@@ -18,13 +18,15 @@
    ```
    
 2. Configure as variáveis de ambiente
+
    Crie um arquivo `.env` na raiz do projeto com as informações do banco de dados:
-      ```bash  
+      ```env  
         DB_PASSWORD=senha_a
         DB_NAME=game_server_a
       ```
       
-3. Suba os containers do servidor
+4. Suba os containers do servidor
+   
 Para subir todos os serviços:
   ```bash  
      docker compose up --build

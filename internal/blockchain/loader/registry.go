@@ -12,6 +12,7 @@ type Contracts struct {
 }
 
 func LoadAllContracts(cli *client.BlockchainClient, networkID string) (*Contracts, error) {
+	// carrega o endereço do contrato atravez do loader
 	packageAddrStr, _ := LoadContractAddress("build/contracts/PackageRegistry.json", networkID)
 	// card
 	// player 

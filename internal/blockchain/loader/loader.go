@@ -12,6 +12,7 @@ type TruffleArtifact struct {
 	} `json:"networks"`
 }
 
+//Carrega o endereço dos contratos na blokchain(pega no json gerado pelo truffle)
 func LoadContractAddress(artifact string, network string) (string, error) {
 	b, err := os.ReadFile(artifact)
 	if err != nil {

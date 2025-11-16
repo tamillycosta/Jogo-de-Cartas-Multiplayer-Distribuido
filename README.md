@@ -47,3 +47,13 @@
    ```bash
       go run .
    ``` 
+
+
+export DB_PORT=3307
+export DB_USER=root
+export DB_PASSWORD=senha_a
+export DB_NAME=game_server_a
+export RAFT_BOOTSTRAP=true
+export PK=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d
+
+go run main.go

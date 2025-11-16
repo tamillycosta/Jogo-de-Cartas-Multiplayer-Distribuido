@@ -12,6 +12,8 @@ services:
       - mysql_data_a:/var/lib/mysql
     networks:
       - game-network
+    ports:
+      - "3307:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s
@@ -122,6 +124,7 @@ services:
       - "9001:9000/udp"  
     networks:
       - game-network
+    
     restart: unless-stopped
 
   # ========================================

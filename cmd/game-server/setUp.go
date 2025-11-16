@@ -6,7 +6,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler"
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/authHandler"
 	matchhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/matchHandler"
-
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	packgehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/packgeHandler"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	con "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service"
@@ -40,13 +40,13 @@ func SetUpServerBaseConfigs() *entities.ServerInfo {
 		Region:   utils.GetEnv("REGION", "us-east-1"),
 		Address:  utils.GetEnv("SERVER_ADDRESS", "localhost"),
 		Port:     utils.GetPortFromEnv("PORT", 8080),
-		IsLeader: utils.GetEnvBool("RAFT_BOOTSTRAP", false),
+		IsLeader: utils.GetEnvBool("RAFT_BOOTSTRAP", true),
 		Status:   "active",
 	}
 	return myServerInfo
 }
 
-func SetUpGame(router *gin.Engine) (*con.GameServer,*gamesession.GameSessionManager,*entities.ServerInfo, error) {
+func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*con.GameServer,*gamesession.GameSessionManager,*entities.ServerInfo, error) {
 
 	// ---------- SETA CONFUGURAÇÕES BASICAS PARA SERVIDOR P2P -----------
 	myServerInfo := SetUpServerBaseConfigs()
@@ -71,9 +71,10 @@ func SetUpGame(router *gin.Engine) (*con.GameServer,*gamesession.GameSessionMana
 	
 
 	// --------- INICIALIZA E INJETA SERVIÇOS DO SERVIDOR P2P -----------
+	
 	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, myServerInfo, apiClient)
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager)
-	pkgService := packageService.New(packageRepo, cardRepo, apiClient, raftService, gameserver.SessionManager)
+	pkgService := packageService.New(packageRepo, cardRepo, apiClient, raftService, gameserver.SessionManager, contractsService)
 	tradeSvc := tradeService.New(apiClient, raftService, gameserver.SessionManager)
 
 	seedSvc := seedService.New(raftService, pkgService)

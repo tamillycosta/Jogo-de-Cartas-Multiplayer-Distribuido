@@ -56,19 +56,47 @@ func main() {
 	// Goroutine para receber mensagens
 	go client.listen()
 
-	// Login
-	fmt.Print("\n🎮 Digite seu nome de usuário: ")
-	username, _ := reader.ReadString('\n')
-	username = strings.TrimSpace(username)
-
-	client.subscribe("response." + client.clientID)
-	client.subscribe("package.response." + client.clientID)
-
-	client.username = username
-	client.login(username)
+	for {
+		clearScreen()
+		fmt.Println("🔐 Sistema de Autenticação")
+		fmt.Println("1) Login")
+		fmt.Println("2) Criar Conta")
+		fmt.Print("Escolha: ")
+	
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+	
+		if choice == "1" || choice == "2" {
+			if choice == "2" {
+				fmt.Print("\n🆕 Digite o nome de usuário para criar conta: ")
+				username, _ := reader.ReadString('\n')
+				username = strings.TrimSpace(username)
+	
+				client.subscribe("response." + client.clientID)
+				client.subscribe("package.response." + client.clientID)
+				client.createAccount(username)
+				
+				fmt.Println("\n⏳ Criando conta...")
+				time.Sleep(1 * time.Second)
+			}
+	
+			fmt.Print("\n🎮 Digite seu nome de usuário para login: ")
+			client.subscribe("response." + client.clientID)
+			client.subscribe("package.response." + client.clientID)
+			username, _ := reader.ReadString('\n')
+			username = strings.TrimSpace(username)
+	
+			client.username = username
+			client.login(username)
+			break
+		}
+	
+		fmt.Println("❌ Opção inválida!")
+		time.Sleep(1 * time.Second)
+	}
 
 	
-
+	
 	// Aguarda um pouco para processar login
 	fmt.Println("\n⏳ Processando login...")
 	time.Sleep(1 * time.Second)
@@ -174,8 +202,8 @@ func (c *Client) listen() {
 
 		case "queue_joined":
 			queueSize, _ := msg["queue_size"].(float64)
-			fmt.Printf("\n✅ Você entrou na fila! (jogadores: %.0f)\n", queueSize)
-			fmt.Println("⏳ Procurando oponente...")
+			fmt.Printf("\nVocê entrou na fila! (jogadores: %.0f)\n", queueSize)
+			fmt.Println(" Procurando oponente...")
 
 		case "match_found":
 			c.handleMatchFound(msg)
@@ -184,49 +212,65 @@ func (c *Client) listen() {
 			c.handleGameUpdate(msg)
 
 		case "subscribed":
-			topic, _ := msg["topic"].(string)
-			log.Printf("✅ Inscrito em: %s", topic)
-
+			
+		    
 		case "error":
 			
 			if c.inMatch && c.isServerDownError(msg) {
 				c.handleServerDown()
 			} else {
 				errMsg, _ := msg["error"].(string)
-				fmt.Printf("\n❌ Erro: %s\n", errMsg)
+				fmt.Printf("\n Erro: %s\n", errMsg)
 			}
 
 		default:
-			log.Printf("📩 Mensagem não tratada: %s", msgType)
+			log.Printf("Mensagem não tratada: %s", msgType)
 		}
 	}
 }
 
 
 func (c *Client) handleResponse(msg map[string]interface{}) {
-	data, ok := msg["data"].(map[string]interface{})
-	if !ok {
-		return
-	}
+    data, ok := msg["data"].(map[string]interface{})
+    if !ok {
+        return
+    }
 
-	respType, _ := data["type"].(string)
-	success, _ := data["success"].(bool)
+    respType, _ := data["type"].(string)
+    success, _ := data["success"].(bool)
 
-	if respType == "login_response" && success {
-		fmt.Println("✅ Login realizado com sucesso!")
-		if player, ok := data["player"].(map[string]interface{}); ok {
-			if playerID, ok := player["id"].(string); ok {
-				c.playerID = playerID
-			}
-		}
-	}
+    switch respType {
+
+    case "account_created":
+        if success {
+            message, _ := data["message"].(string)
+            fmt.Printf("\n %s\n", message)
+            fmt.Println("Agora você pode fazer login!")
+        } else {
+            errMsg, _ := data["error"].(string)
+            fmt.Printf("\n Erro ao criar conta: %s\n", errMsg)
+        }
+
+    case "login_response":
+        if success {
+            fmt.Println(" Login realizado com sucesso!")
+            if player, ok := data["player"].(map[string]interface{}); ok {
+                if playerID, ok := player["id"].(string); ok {
+                    c.playerID = playerID
+                }
+            }
+        } else {
+            errMsg, _ := data["error"].(string)
+            fmt.Printf("\n Erro no login: %s\n", errMsg)
+        }
+    }
 }
 
 
 func (c *Client) handlePackageResponse(msg map[string]interface{}) {
 	data, ok := msg["data"].(map[string]interface{})
 	if !ok {
-		fmt.Println("❌ Resposta inválida do servidor")
+		fmt.Println(" Resposta inválida do servidor")
 		return
 	}
 
@@ -238,7 +282,7 @@ func (c *Client) handlePackageResponse(msg map[string]interface{}) {
 		fmt.Println("🎴 Novas cartas adicionadas ao seu deck!")
 	} else {
 		errorMsg, _ := data["error"].(string)
-		fmt.Printf("\n❌ Erro ao abrir pacote: %s\n", errorMsg)
+		fmt.Printf("\n Erro ao abrir pacote: %s\n", errorMsg)
 	}
 }
 

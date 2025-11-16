@@ -2,6 +2,17 @@ package main
 
 import "fmt"
 // topicos do pub sub 
+func (c *Client) createAccount(username string) {
+    c.conn.WriteJSON(map[string]interface{}{
+		"type":  "publish",
+        "topic": "auth.create_account",
+        "data": map[string]interface{}{
+            "username": username,
+        },
+    })
+}
+
+
 
 func (c *Client) login(username string) {
 	msg := map[string]interface{}{

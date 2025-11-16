@@ -1,40 +1,73 @@
 # 🌟 MagiCards 🌟
 
+#   Links Importantes 
+-   Ganache (https://archive.trufflesuite.com/ganache/)
+-   Truffle (https://www.softobotics.org/blogs/truffle-a-comprehensive-guide-to-smart-contract-development-on-the-blockchain/)
+-   Abigen (https://geth.ethereum.org/docs/tools/abigen)
+
 
 ## 🚀 Como rodar o projeto
 
-### ✅ Pré-requisitos
-- [Go](https://go.dev/dl/)
-- [Docker](https://www.docker.com/) 
+### ✅ Depêndencias 
+- # Instalar Truffle e Ganache 
+   npm install -g truffle ganache
+- # Instalar abigen (ferramenta Go)
+   go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+
 
 ---
 
-### 🖥️ Rodando a **Aplicação** 
+### 🖥️ Rodando a **Blockchain** 
 
-1. Clone o repositório:
+ Em um terminal rode:
    ```bash
-     https://github.com/tamillycosta/Jogo-de-Cartas-Multiplayer-Distribuido.git
-     cd Jogo-de-Cartas-Multiplayer-Distribuido
+      ganache --port 7545 --deterministic
    ```
-   
-2. Configure as variáveis de ambiente
-
-   Crie um arquivo `.env` na raiz do projeto com as informações do banco de dados:
-      ```env  
-        DB_PASSWORD=senha_a
-        DB_NAME=game_server_a
-      ```
+     ```bash
+      Você vai ver algo assim:
+      Ganache CLI v7.9.1
       
-4. Suba os containers do servidor
+      Available Accounts
+      ==================
+      (0) 0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1 (100 ETH)
+   ```
+
+###  Migrando os contratos inteligentes 
+
+   ```bash
+      cd blockchain
+      truffle migrate --reset
+   ```
+   ```bash
+      Você vai ver algo assim:
+      2_deploy_contracts.js
+   =====================
+
+   Deploying 'SimpleStorage'
+   -------------------------
+   > transaction hash:    0x...
+   > contract address:    0x5FbDB2315678afecb367f032d93F642f64180aa3
+   > block number:        1
+   > account:             0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1
+   ```
+    
+###  Rodando banco de dados local 
+ ```bash
+      sudo docker-compose up --build mysql-a
+```
+###  Rodando servidor 
+ ```bash
+   cd cmd
+
+   export DB_PORT=3307
+   export DB_USER=root
+   export DB_PASSWORD=senha_a
+   export DB_NAME=game_server_a
+   export RAFT_BOOTSTRAP=true // se subir mais de um servidor mude para false 
+   export PK=alguma chave privada gerada automatiacamente pela blockchain
    
-   Para subir todos os serviços:
-     ```bash  
-        docker compose up --build
-     ```
-   Para subir apenas um servidor:
-      ```bash
-         docker compose up --build server-a
-      ```
+   go run main.go
+```
 
 ### 🖥️ Acessando como **Cliente**  
 
@@ -47,13 +80,8 @@
    ```bash
       go run .
    ``` 
+---
 
 
-export DB_PORT=3307
-export DB_USER=root
-export DB_PASSWORD=senha_a
-export DB_NAME=game_server_a
-export RAFT_BOOTSTRAP=true
-export PK=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d
 
-go run main.go
+

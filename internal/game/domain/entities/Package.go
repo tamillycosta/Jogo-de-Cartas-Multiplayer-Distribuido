@@ -9,7 +9,8 @@ import(
 type Package struct {
     ID        string   `gorm:"type:char(36);primaryKey" json:"id"`
     Cards     []*Card  `gorm:"foreignKey:PackageID" json:"cards,omitempty"`
-    Status    string   `gorm:"size:20"`  
+    Status    string   `gorm:"size:20"`  // 
+    OpenedBy   string   `gorm:"foreignKey:ID" json:"player,omitempty"`         
     CreatedAt time.Time
     UpdatedAt time.Time
 }

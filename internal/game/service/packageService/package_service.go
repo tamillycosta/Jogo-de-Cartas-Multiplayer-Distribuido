@@ -1,6 +1,7 @@
 package packageService
 
 import (
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/aplication/usecases"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
@@ -12,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
+	"context"
 	"github.com/google/uuid"
 )
 
@@ -23,16 +24,18 @@ type PackageService struct {
 	apiClient      *client.Client
 	raft           *raftService.RaftService
 	sessionManager *session.SessionManager
+	chainService 		*contracts.ChainService // serviço para interação com a blockchain 	
 }
 
 func New(
-	packageRepo *repository.PackageRepository, cardRepo *repository.CardRepository, apiClient *client.Client, raft *raftService.RaftService, sessionManager *session.SessionManager) *PackageService {
+	packageRepo *repository.PackageRepository, cardRepo *repository.CardRepository, apiClient *client.Client, raft *raftService.RaftService, sessionManager *session.SessionManager, chainService *contracts.ChainService) *PackageService {
 	return &PackageService{
 		packageRepo:    packageRepo,
 		cardRepo:       cardRepo,
 		raft:           raft,
 		apiClient:      apiClient,
 		sessionManager: sessionManager,
+		chainService:		chainService,
 	}
 }
 
@@ -222,21 +225,20 @@ func (ps *PackageService) openPackageAsLeader(playerID string) error {
 
 // ----------------- Serviço para criação dos pacotes --------------------------
 
-// cria um pacote com 5 cartas aleatórias
+// cria um pacote com 5 cartas aleatórias 
+// primeiro cria cartas localmente -> adiciona a blockchain
 func (ps *PackageService) CreatePackage() error {
 	if !ps.raft.IsLeader() {
 		return fmt.Errorf("apenas o líder pode criar packages")
 	}
 
 	packageID := uuid.New().String()
-
-	// Gera 5 cartas aleatórias
 	cardTemplates := usecases.GenerateRandomCards(5)
 	cardIDs := make([]string, 5)
 
 	log.Printf("[PackageService] Criando package %s com 5 cartas", packageID)
 
-	// Cria pacote
+	// 1. CRIAR PACOTE NO RAFT (estado local - rápido)
 	pkgCmd := comands.CreatePackageCommand{
 		PackageID: packageID,
 		CardIDs:   cardIDs,
@@ -249,10 +251,10 @@ func (ps *PackageService) CreatePackage() error {
 	})
 
 	if err != nil || !response.Success {
-		return fmt.Errorf("erro ao criar package: %v", err)
+		return fmt.Errorf("erro ao criar package no Raft: %v", err)
 	}
 
-	// Cria cartas
+	// 2. CRIAR CARTAS NO RAFT
 	for i, templateID := range cardTemplates {
 		cardID := uuid.New().String()
 		cardIDs[i] = cardID
@@ -274,9 +276,21 @@ func (ps *PackageService) CreatePackage() error {
 		}
 	}
 
-	log.Printf("[PackageService] Package %s criado com sucesso!", packageID)
+	//  REGISTRAR NO BLOCKCHAIN (assíncrono - não bloqueia)
+	if ps.chainService != nil {
+		go func() {
+			ctx := context.Background()
+			err := ps.chainService.PackageChainService.RegisterPackageCreation(ctx, packageID, cardIDs)
+			if err != nil {
+				log.Printf("⚠️ [Blockchain] Erro ao registrar package %s: %v", packageID, err)
+			}
+		}()
+	}
+
+	log.Printf("[PackageService]  Package %s criado com sucesso!", packageID)
 	return nil
 }
+
 
 // retorna pacotes disponíveis
 func (ps *PackageService) GetAvailablePackages() ([]*entities.Package, error) {
@@ -293,4 +307,35 @@ func (ps *PackageService) GetAvailablePackages() ([]*entities.Package, error) {
 	}
 
 	return available, nil
+}
+
+// novos metodos para ultilizar na abetura de pacotes 
+
+func (ps *PackageService) VerifyPackageInBlockchain(packageID string) (bool, error) {
+	if ps.chainService == nil {
+		return false, fmt.Errorf("blockchain service não disponível")
+	}
+
+	ctx := context.Background()
+	exists, err := ps.chainService.PackageChainService.PackageExists(ctx, packageID)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+// Pega informações do blockchain
+func (ps *PackageService) GetPackageFromBlockchain(packageID string) (*contracts.PackageInfo, error) {
+	if ps.chainService == nil{
+		return nil, fmt.Errorf("blockchain service não disponível")
+	}
+
+	ctx := context.Background()
+	info, err := ps.chainService.PackageChainService.GetPackageInfo(ctx, packageID)
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }

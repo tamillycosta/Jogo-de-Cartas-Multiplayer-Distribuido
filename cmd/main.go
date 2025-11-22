@@ -22,7 +22,7 @@ func main() {
 	
 	blockchainClient, err := blockchain.NewBlockchainClient(blockchain.Config{
 		RPC:        getEnv("RPC_URL", "http://127.0.0.1:7545"),
-		PrivateKey: getEnv("PK", ""), // tem que pssar uma chave privada como parameto no export (PK=491029720)
+		PrivateKey: getEnv("PK", ""), // tem que pssar uma chave privada como parameto no executavel 
 		ChainID:    1337,
 	})
 	
@@ -38,7 +38,7 @@ func main() {
 	if blockchainClient != nil {
 		contractService = contracts.New(blockchainClient)
 	}
-
+	
 	// ===== INICIALIZAR GAME SERVER (passar blockchain) =====
 	if contractService  != nil {
 		log.Println("  Blockchain: ATIVO")

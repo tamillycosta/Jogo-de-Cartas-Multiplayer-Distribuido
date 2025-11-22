@@ -12,7 +12,7 @@ import (
 )
 
 // Configs da api de comunicação 
-func SetUpApi(router *gin.Engine,myServerInfo *entities.ServerInfo ,handlers *handlers.Handler){
+func SetUpApi(router *gin.Engine, myServerInfo *entities.ServerInfo ,handlers *handlers.Handler){
 
 	// seta as rotas do handler
 	routes.SetupRoutes(router,handlers)

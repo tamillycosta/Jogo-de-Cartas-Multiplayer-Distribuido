@@ -20,7 +20,7 @@ func (f *GameFSM)  applyCreatePackage(data json.RawMessage) *comands.ApplyRespon
 	pkg := &entities.Package{
 		ID: cmd.PackageID,
 		Status: "avalible",
-
+		
 	}
 
 	if _, err := f.packageRepository.CreateWithID(pkg); err != nil {
@@ -52,6 +52,7 @@ func (f *GameFSM) applyCreateCard(data json.RawMessage) *comands.ApplyResponse {
 		Rarity:    template.Rarity,
 		Health: template.Health,
 		PackageID: &cmd.PackageID,
+		TemplateID: template.TemplateID,
 	}
 
 	if _, err := f.cardRepository.CreateWithID(card); err != nil {

@@ -8,8 +8,6 @@ import (
 
 	"fmt"
 	"log"
-
-	
 )
 
 // comandos da GameFSM para cadastro de um usuario
@@ -20,8 +18,10 @@ func (f *GameFSM) applyCreateUser(data json.RawMessage) *comands.ApplyResponse {
 	}
 
 	player := &entities.Player{
-		ID:       cmd.UserID,
-		Username: cmd.Username,
+		ID:         cmd.UserID,
+		Username:   cmd.Username,
+		PrivateKey: cmd.PrivateKey, 
+		Address: cmd.AddressAcount,
 	}
 
 	if _, err := f.playerRepository.CreateWithID(player); err != nil {
@@ -42,7 +42,6 @@ func (f *GameFSM) applyDeleteUser(data json.RawMessage) *comands.ApplyResponse {
 		}
 	}
 
-	
 	log.Printf("[FSM] Deletando usuário: %s", cmd.UserID)
 
 	return &comands.ApplyResponse{
@@ -51,9 +50,8 @@ func (f *GameFSM) applyDeleteUser(data json.RawMessage) *comands.ApplyResponse {
 	}
 }
 
-
 func (f *GameFSM) applyUpdateUser(data json.RawMessage) *comands.ApplyResponse {
-	
+
 	return &comands.ApplyResponse{
 		Success: true,
 		Data:    "user updated",

@@ -21,6 +21,7 @@ import (
 type PackageService struct {
 	packageRepo    *repository.PackageRepository
 	cardRepo       *repository.CardRepository
+	playerRepo 		*repository.PlayerRepository
 	apiClient      *client.Client
 	raft           *raftService.RaftService
 	sessionManager *session.SessionManager
@@ -28,10 +29,11 @@ type PackageService struct {
 }
 
 func New(
-	packageRepo *repository.PackageRepository, cardRepo *repository.CardRepository, apiClient *client.Client, raft *raftService.RaftService, sessionManager *session.SessionManager, chainService *contracts.ChainService) *PackageService {
+	packageRepo *repository.PackageRepository, cardRepo *repository.CardRepository, playerRepo *repository.PlayerRepository, apiClient *client.Client, raft *raftService.RaftService, sessionManager *session.SessionManager, chainService *contracts.ChainService) *PackageService {
 	return &PackageService{
 		packageRepo:    packageRepo,
 		cardRepo:       cardRepo,
+		playerRepo: playerRepo,
 		raft:           raft,
 		apiClient:      apiClient,
 		sessionManager: sessionManager,
@@ -171,11 +173,10 @@ func (ps *PackageService) forwardToLeader(playerID string) error {
 	return nil
 }
 
-// Metodo chamada pelo rota api por um servidor n lider
 func (ps *PackageService) openPackageAsLeader(playerID string) error {
 	log.Printf("[PackageService] Sou líder! Processando comando via Raft...")
 	
-	// Busca pacotes disponíveis
+	//  Busca pacotes disponíveis
 	packages, err := ps.packageRepo.GetAll()
 	if err != nil {
 		log.Printf("[PackageService] Erro ao carregar pacotes: %v", err)
@@ -198,28 +199,69 @@ func (ps *PackageService) openPackageAsLeader(playerID string) error {
 
 	log.Printf("[PackageService] Pacote selecionado: %s", availablePackage.ID)
 
-	// Bloqueia pacote
+	//  Bloqueia pacote (no Raft)
 	log.Printf("[PackageService] Bloqueando pacote...")
 	err = ps.blockPackage(availablePackage.ID, playerID)
 	if err != nil {
 		return fmt.Errorf("erro ao bloquear pacote: %v", err)
 	}
 
-	// Abre pacote
+	// Abre pacote (no Raft)
 	log.Printf("[PackageService] Abrindo pacote...")
 	err = ps.openPackage(availablePackage.ID, playerID)
 	if err != nil {
 		return fmt.Errorf("erro ao abrir pacote: %v", err)
 	}
 
-	// Transfere cartas
+	// Transfere cartas (no Raft - estado local)
 	log.Printf("[PackageService] Transferindo cartas...")
 	err = ps.transferCards(availablePackage.ID, playerID)
 	if err != nil {
 		return fmt.Errorf("erro ao transferir cartas: %v", err)
 	}
 
-	log.Printf("[PackageService] Package %s aberto por jogador %s", availablePackage.ID, playerID)
+	//  Busca dados do jogador
+	player, err := ps.playerRepo.FindById(playerID)
+	if err != nil {
+		return fmt.Errorf("erro ao carregar dados do jogador: %v", err)
+	}
+
+	// . Busca pacote com cartas para pegar templateIDs
+	packageData, err := ps.packageRepo.FindByIdWithCards(availablePackage.ID)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar pacote com cartas: %v", err)
+	}
+
+	// Extrai os templateIDs das cartas
+	templateIDs := make([]string, len(packageData.Cards))
+	for i, card := range packageData.Cards {
+		templateIDs[i] = card.TemplateID
+	}
+	if len(templateIDs) != 5 {
+		return fmt.Errorf("pacote deve ter 5 cartas, tem %d", len(templateIDs))
+	}
+	
+	//  Registra na blockchain 
+	if ps.chainService != nil && ps.chainService.PackageChainService != nil {
+		go func() {
+			ctx := context.Background()
+			err := ps.chainService.PackageChainService.RegisterPackageOpen(
+				ctx,
+				availablePackage.ID,
+				playerID,
+				player.Address,      
+				player.PrivateKey,  
+				templateIDs,       
+			)
+			if err != nil {
+				log.Printf(" [Blockchain] Erro ao cadastrar abertura: %v", err)
+			} else {
+				log.Printf(" [Blockchain] Abertura e mint concluídos com sucesso!")
+			}
+		}()
+	}
+
+	log.Printf(" [PackageService] Package %s aberto por jogador %s", availablePackage.ID, playerID)
 	return nil
 }
 
@@ -238,7 +280,7 @@ func (ps *PackageService) CreatePackage() error {
 
 	log.Printf("[PackageService] Criando package %s com 5 cartas", packageID)
 
-	// 1. CRIAR PACOTE NO RAFT (estado local - rápido)
+	//  CRIAR PACOTE NO RAFT (estado local )
 	pkgCmd := comands.CreatePackageCommand{
 		PackageID: packageID,
 		CardIDs:   cardIDs,
@@ -254,7 +296,7 @@ func (ps *PackageService) CreatePackage() error {
 		return fmt.Errorf("erro ao criar package no Raft: %v", err)
 	}
 
-	// 2. CRIAR CARTAS NO RAFT
+	// CRIAR CARTAS NO RAFT
 	for i, templateID := range cardTemplates {
 		cardID := uuid.New().String()
 		cardIDs[i] = cardID
@@ -275,8 +317,8 @@ func (ps *PackageService) CreatePackage() error {
 			log.Printf("⚠️ Erro ao criar carta %s: %v", cardID, err)
 		}
 	}
-
-	//  REGISTRAR NO BLOCKCHAIN (assíncrono - não bloqueia)
+      
+	// resgistrar na chain 
 	if ps.chainService != nil {
 		go func() {
 			ctx := context.Background()
@@ -286,7 +328,7 @@ func (ps *PackageService) CreatePackage() error {
 			}
 		}()
 	}
-
+  
 	log.Printf("[PackageService]  Package %s criado com sucesso!", packageID)
 	return nil
 }
@@ -309,7 +351,7 @@ func (ps *PackageService) GetAvailablePackages() ([]*entities.Package, error) {
 	return available, nil
 }
 
-// novos metodos para ultilizar na abetura de pacotes 
+// ============ HELPERS ==========================
 
 func (ps *PackageService) VerifyPackageInBlockchain(packageID string) (bool, error) {
 	if ps.chainService == nil {

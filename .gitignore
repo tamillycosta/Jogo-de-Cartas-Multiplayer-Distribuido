@@ -16,3 +16,7 @@ go.work.sum
 
 # raft logstore
 data/
+
+# contratos e lib 
+node_modules/
+build/

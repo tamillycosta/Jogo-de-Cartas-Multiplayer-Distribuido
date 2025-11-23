@@ -1,20 +1,23 @@
 package authService
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
-
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
+	"crypto/ecdsa"
 
+	gameEntities "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	raftService "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft/comands"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-
-	gameEntities "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
+	"context"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/google/uuid"
 )
@@ -25,15 +28,17 @@ type AuthService struct {
 	knownServers map[string]*entities.ServerInfo
 	raft         *raftService.RaftService 
 	sessionManager *session.SessionManager
+	blockchainClient *blockchain.BlockchainClient
 }
 
-func New(repo *repository.PlayerRepository,apiClient *client.Client,knownServers map[string]*entities.ServerInfo,raft *raftService.RaftService, sm *session.SessionManager) *AuthService {
+func New(repo *repository.PlayerRepository,apiClient *client.Client,knownServers map[string]*entities.ServerInfo,raft *raftService.RaftService, sm *session.SessionManager,blockchainClient *blockchain.BlockchainClient ) *AuthService {
 	return &AuthService{
 		repo:         repo,
 		apiClient:    apiClient,
 		knownServers: knownServers,
 		raft:         raft,
 		sessionManager: sm,
+		blockchainClient: blockchainClient,
 	}
 }
 
@@ -65,17 +70,22 @@ func (as *AuthService) CreateAccount(username string) error {
 }
 
 
-func (as *AuthService) createAccountAsLeader(username string)error{
-
+func (as *AuthService) createAccountAsLeader(username string) error {
 	log.Printf("[AuthService] Sou líder! Processando comando via Raft...")
 
 	userID := uuid.New().String()
-
-	cmdData := comands.CreateUserCommand{
-		UserID:   userID,
-		Username: username,
+	hexKey, address, err := as.GeneratePrivateKey()
+	if err != nil {
+		return fmt.Errorf("erro ao gerar chave privada: %v", err)
 	}
 
+	// Criar usuário via Raft
+	cmdData := comands.CreateUserCommand{
+		UserID:        userID,
+		Username:      username,
+		PrivateKey:    hexKey,
+		AddressAcount: address,
+	}
 	data, err := json.Marshal(cmdData)
 	if err != nil {
 		return fmt.Errorf("erro ao serializar comando: %v", err)
@@ -87,7 +97,6 @@ func (as *AuthService) createAccountAsLeader(username string)error{
 		RequestID: uuid.New().String(),
 	}
 
-	// Aplica comando via Raft (será replicado para todos os servidores segidores)
 	response, err := as.raft.ApplyCommand(cmd)
 	if err != nil {
 		log.Printf("[AuthService] Erro ao aplicar comando no Raft: %v", err)
@@ -99,9 +108,48 @@ func (as *AuthService) createAccountAsLeader(username string)error{
 		return fmt.Errorf("falha ao criar usuário: %s", response.Error)
 	}
 
+	log.Printf("[AuthService] Usuário '%s' criado no Raft!", username)
+
+	// financia a conta do jogador 
+	err = as.finaceAccount(address)
+	if err != nil {
+		return  err
+	}	
+
 	log.Printf("[AuthService] Usuário '%s' criado e replicado no cluster via Raft!", username)
 	return nil
-} 
+}
+
+//Envia 1 ETH para a conta do  jogador (para que ele possa assinar suas transações )
+func (as *AuthService) finaceAccount( address string ) error{
+	if as.blockchainClient != nil {
+		
+			ctx := context.Background()
+			
+			
+			amount := blockchain.EthToWei(1.0)
+			
+			log.Printf(" [AuthService] Financiando conta %s com 1 ETH...", address)
+			
+			err := as.blockchainClient.FundAccount(ctx, address, amount)
+			if err != nil {
+				log.Printf("[AuthService] Erro ao financiar conta %s: %v", address, err)
+				return err
+			}
+			
+		
+			balance, err := as.blockchainClient.GetBalance(ctx, address)
+			if err != nil {
+				log.Printf("[AuthService] Erro ao verificar saldo: %v", err)
+				return err
+			}
+			
+			log.Printf(" [AuthService] Conta %s financiada! Saldo: %f ETH", 
+				address, blockchain.WeiToEth(balance))
+		
+	}
+ return  nil
+}
 
 
 // redireciona criação de conta para o lider chamando rota da api rest 
@@ -194,6 +242,30 @@ func (as *AuthService) Logout(clientID string) error {
 
 
 // ----------------- AUXILIARES --------------------
+func (as *AuthService) GeneratePrivateKey() (string, string, error) {
+    // Gera chave privada
+    privateKey, err := crypto.GenerateKey()
+    if err != nil {
+        return "", "", fmt.Errorf("erro ao gerar chave: %v", err)
+    }
+
+    // Converte para hex (formato 64 chars)
+    privateKeyBytes := crypto.FromECDSA(privateKey)            // 32 bytes
+    privateKeyHex := hex.EncodeToString(privateKeyBytes)       // 64 chars hex
+
+    // Gera endereço público
+    publicKey := privateKey.Public()
+    publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+    if !ok {
+        return "", "", fmt.Errorf("erro ao converter public key")
+    }
+
+    address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
+
+    return privateKeyHex, address, nil
+}
+
+
 
 
 // Verifica se username existe localmente (NÃO usa Raft, apenas leitura)

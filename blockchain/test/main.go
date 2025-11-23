@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-
-	
 )
 
 

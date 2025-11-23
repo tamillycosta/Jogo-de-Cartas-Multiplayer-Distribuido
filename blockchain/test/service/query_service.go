@@ -8,7 +8,7 @@ import (
 
 	c "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/loader"
-	
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -77,6 +77,30 @@ type Summary struct {
 	TotalCards          int
 	TotalPlayers        int
 }
+
+
+
+type TransferEvent struct {
+	TokenID      uint64
+	CardID       string
+	From         string
+	To           string
+	BlockNumber  uint64
+	TxHash       string
+	Timestamp    uint64
+}
+
+type CardHistoryReport struct {
+	CardID       string
+	TokenID      uint64
+	TemplateID   string
+	PackageID    string
+	MintedAt     uint64
+	CurrentOwner string
+	Transfers    []TransferEvent
+}
+
+
 
 // ===== CONSULTAS =====
 
@@ -260,3 +284,122 @@ func (qs *BlockchainQueryService) GetSystemReport(ctx context.Context) (*Summary
 	}, nil
 }
 
+
+// retorna o histórico completo de uma carta incluindo todas as transferências
+func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID string) (*CardHistoryReport, error) {
+	//  Busca os metadados da carta
+	tokenId, err := qs.contracts.Card.CardIdToTokenId(qs.client.CallOpts(), cardID)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar tokenId: %w", err)
+	}
+
+	if tokenId.Cmp(big.NewInt(0)) == 0 {
+		return nil, fmt.Errorf("carta não encontrada na blockchain")
+	}
+
+	cardToken, err := qs.contracts.Card.GetCardMetadata(
+		qs.client.CallOpts(),
+		tokenId,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar metadados: %w", err)
+	}
+
+	//Buscar evento de mint (primeira transferência)
+	mintEvents, err := qs.contracts.Card.FilterCardMinted(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: ctx,
+		},
+		nil, nil,nil,
+	)
+	if err != nil {
+		log.Printf("⚠️ Erro ao buscar eventos de mint: %v", err)
+	}
+
+	var mintTransfer *TransferEvent
+	if mintEvents != nil {
+		defer mintEvents.Close()
+		
+		for mintEvents.Next() {
+			if mintEvents.Event.TokenId.Cmp(tokenId) == 0 {
+				// Buscar timestamp do bloco
+				block, _ := qs.client.Client.BlockByNumber(ctx, big.NewInt(int64(mintEvents.Event.Raw.BlockNumber)))
+				timestamp := uint64(0)
+				if block != nil {
+					timestamp = block.Time()
+				}
+
+				mintTransfer = &TransferEvent{
+					TokenID:     tokenId.Uint64(),
+					CardID:      cardToken.CardId,
+					From:        "0x0000000000000000000000000000000000000000", 
+					To:          mintEvents.Event.Owner.Hex(),
+					BlockNumber: mintEvents.Event.Raw.BlockNumber,
+					TxHash:      mintEvents.Event.Raw.TxHash.Hex(),
+					Timestamp:   timestamp,
+				}
+				break
+			}
+		}
+	}
+
+	// Buscar eventos de transferência
+	transferEvents, err := qs.contracts.Card.FilterCardTransferred(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: ctx,
+		},
+		nil, // tokenIds (nil = todos)
+		nil, // from
+	
+	)
+	if err != nil {
+		log.Printf("⚠️ Erro ao buscar eventos de transferência: %v", err)
+	}
+
+	transfers := []TransferEvent{}
+	
+	// Adiciona mint primeiro
+	if mintTransfer != nil {
+		transfers = append(transfers, *mintTransfer)
+	}
+
+	// Adiciona transferências
+	if transferEvents != nil {
+		defer transferEvents.Close()
+		
+		for transferEvents.Next() {
+			if transferEvents.Event.TokenId.Cmp(tokenId) == 0 {
+				// Buscar timestamp do bloco
+				block, _ := qs.client.Client.BlockByNumber(ctx, big.NewInt(int64(transferEvents.Event.Raw.BlockNumber)))
+				timestamp := uint64(0)
+				if block != nil {
+					timestamp = block.Time()
+				}
+
+				transfers = append(transfers, TransferEvent{
+					TokenID:     tokenId.Uint64(),
+					CardID:      transferEvents.Event.CardId.String(),
+					From:        transferEvents.Event.From.Hex(),
+					To:          transferEvents.Event.To.Hex(),
+					BlockNumber: transferEvents.Event.Raw.BlockNumber,
+					TxHash:      transferEvents.Event.Raw.TxHash.Hex(),
+					Timestamp:   timestamp,
+				})
+			}
+		}
+	}
+
+	return &CardHistoryReport{
+		CardID:       cardToken.CardId,
+		TokenID:      tokenId.Uint64(),
+		TemplateID:   cardToken.TemplateId,
+		PackageID:    cardToken.PackageId,
+		MintedAt:     cardToken.MintedAt.Uint64(),
+		CurrentOwner: cardToken.CurrentOwner.Hex(),
+		Transfers:    transfers,
+	}, nil
+}

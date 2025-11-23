@@ -80,7 +80,6 @@ func (r *CardRepository) UpdateCardStatus(playerID, cardID string) error {
     return r.db.Model(&entities.Card{}).
         Where("id = ?", cardID).
         Updates(map[string]interface{}{
-            "package_id": nil,
             "player_id":  playerID,
         }).Error
 }

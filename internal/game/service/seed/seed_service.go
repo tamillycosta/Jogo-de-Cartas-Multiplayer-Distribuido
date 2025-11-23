@@ -56,7 +56,7 @@ func (s *SeedService) RunSeeds() {
 // cria pacotes iniciais
 // quantidade inicial de 100 pacotes 
 func (s *SeedService) createInitialPackages() {
-	const initialPackageCount = 10
+	const initialPackageCount = 5
 	
 	log.Printf("[Seeds] Criando %d pacotes iniciais...", initialPackageCount)
 	

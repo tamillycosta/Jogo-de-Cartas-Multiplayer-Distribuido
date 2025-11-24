@@ -22,7 +22,7 @@ func  LoadPlayerCardsFromChain( chainService *contracts.ChainService,playerAddre
 
 	tokenIDs, err := chainService.CardChainService.GetPlayerCards(ctx, playerAddress)
 	if err != nil {
-		log.Printf("⚠️ Erro ao buscar cartas na blockchain: %v", err)
+		log.Printf("Erro ao buscar cartas na blockchain: %v", err)
 		return cardRepo.FindByPlayerID(playerID)
 	}
 

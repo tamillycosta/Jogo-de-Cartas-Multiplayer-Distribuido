@@ -232,34 +232,57 @@ func (ps *PackageService) openPackageAsLeader(playerID string) error {
 		return fmt.Errorf("erro ao buscar pacote com cartas: %v", err)
 	}
 
-	// Extrai os templateIDs das cartas
-	templateIDs := make([]string, len(packageData.Cards))
-	for i, card := range packageData.Cards {
-		templateIDs[i] = card.TemplateID
-	}
-	if len(templateIDs) != 5 {
-		return fmt.Errorf("pacote deve ter 5 cartas, tem %d", len(templateIDs))
-	}
+
+	//  busca ordem das cartas na blockchain 
+	pkgBlockchain, err := ps.chainService.PackageChainService.GetPackageInfo(
+        context.Background(),
+        availablePackage.ID,
+    )
+    if err != nil {
+        return fmt.Errorf("erro ao buscar pacote na blockchain: %w", err)
+    }
+
+	//  map: cardID → templateID
+    cardToTemplate := make(map[string]string)
+    for _, card := range packageData.Cards {
+        cardToTemplate[card.ID] = card.TemplateID
+    }
+
+    // usa a ordem da blockchian 
+    orderedTemplateIDs := make([]string, len(pkgBlockchain.CardIDs))
+    for i, cardID := range pkgBlockchain.CardIDs {
+        templateID, exists := cardToTemplate[cardID]
+        if !exists {
+            return fmt.Errorf("carta %s não encontrada no banco", cardID)
+        }
+        orderedTemplateIDs[i] = templateID
+        log.Printf(" [%d] CardID: %s → Template: %s", i, cardID, templateID)
+    }
+
+    if len(orderedTemplateIDs) != 5 {
+        return fmt.Errorf("pacote deve ter 5 cartas, tem %d", len(orderedTemplateIDs))
+    }
 	
 	//  Registra na blockchain 
-	if ps.chainService != nil && ps.chainService.PackageChainService != nil {
-		go func() {
-			ctx := context.Background()
-			err := ps.chainService.PackageChainService.RegisterPackageOpen(
-				ctx,
-				availablePackage.ID,
-				playerID,
-				player.Address,      
-				player.PrivateKey,  
-				templateIDs,       
-			)
-			if err != nil {
-				log.Printf(" [Blockchain] Erro ao cadastrar abertura: %v", err)
-			} else {
-				log.Printf(" [Blockchain] Abertura e mint concluídos com sucesso!")
-			}
-		}()
-	}
+	
+	 if ps.chainService != nil && ps.chainService.PackageChainService != nil {
+        go func() {
+            ctx := context.Background()
+            err := ps.chainService.PackageChainService.RegisterPackageOpen(
+                ctx,
+                availablePackage.ID,
+                playerID,
+                player.Address,
+                player.PrivateKey,
+                orderedTemplateIDs, 
+            )
+            if err != nil {
+                log.Printf("⚠️ [Blockchain] Erro ao cadastrar abertura: %v", err)
+            } else {
+                log.Printf(" [Blockchain] Abertura e mint concluídos com sucesso!")
+            }
+        }()
+    }
 
 	log.Printf(" [PackageService] Package %s aberto por jogador %s", availablePackage.ID, playerID)
 	return nil
@@ -276,7 +299,11 @@ func (ps *PackageService) CreatePackage() error {
 
 	packageID := uuid.New().String()
 	cardTemplates := usecases.GenerateRandomCards(5)
+	
 	cardIDs := make([]string, 5)
+	for i := range cardTemplates {
+		cardIDs[i] = uuid.New().String()
+	}
 
 	log.Printf("[PackageService] Criando package %s com 5 cartas", packageID)
 
@@ -298,11 +325,10 @@ func (ps *PackageService) CreatePackage() error {
 
 	// CRIAR CARTAS NO RAFT
 	for i, templateID := range cardTemplates {
-		cardID := uuid.New().String()
-		cardIDs[i] = cardID
+		
 
 		cardCmd := comands.CreateCardCommand{
-			CardID:     cardID,
+			CardID:     cardIDs[i],
 			TemplateID: templateID,
 			PackageID:  packageID,
 		}
@@ -314,7 +340,7 @@ func (ps *PackageService) CreatePackage() error {
 		})
 
 		if err != nil {
-			log.Printf("⚠️ Erro ao criar carta %s: %v", cardID, err)
+			log.Printf("⚠️ Erro ao criar carta %s: %v", cardIDs[i], err)
 		}
 	}
       

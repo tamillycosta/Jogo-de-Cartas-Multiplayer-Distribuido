@@ -24,7 +24,7 @@ func main() {
 
 	cfg := blockchain.Config{
 		RPC:        "http://localhost:7545",
-		PrivateKey: "adicione uma chave privada",
+		PrivateKey: "e485d098507f54e7733a205420dfddbe58db035fa577fc294ebd14db90767a52",
 		ChainID:    1337,
 	}
 
@@ -60,20 +60,18 @@ func main() {
 		case "2":
 			listAllPackages()
 		case "3":
-			showPackageDetails()
-		case "4":
-			showPlayerReport()
-		case "5":
-			showCardHistory()
-		case "6":
-			showTransactionDetails()
-		case "7":
-			searchByAddress()
-		case "8":
 			showRecentActivity()
-		case "10":
+		case "4":
+			showPackageDetails()
+		case "5":
+			showPlayerReport()
+		case "6":
+			showCardHistory()
+		case "7":
+			showTransactionDetails()
+		case "8":
 			showMatchStatistics()
-		case "11":
+		case "9":
 			showPlayerMatchStats()
 		case "0":
 			fmt.Println(" Até logo!")

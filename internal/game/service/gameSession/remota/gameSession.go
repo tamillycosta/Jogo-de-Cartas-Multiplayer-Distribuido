@@ -13,6 +13,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/raft"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 	shared "Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 )
 // REPRESENTA UMA PARTIDA CRIADA REMOTAMENTE 
 type RemoteGameSession struct {
@@ -38,6 +39,9 @@ type RemoteGameSession struct {
 	stopChan      chan struct{}
 	onMatchEnd    func(matchID string)
 
+	// contratos da chain 
+	chainService *contracts.ChainService  
+
 	// verificações de estados 
 	closed        bool
 	startNotified bool 
@@ -46,7 +50,7 @@ type RemoteGameSession struct {
 func New(matchID string,isHost bool,localPlayerID, localUsername, 
 	localClientID string,remotePlayerID, remoteUsername, remoteClientID string,
 	remoteServerID string,broker *pubsub.Broker,client *client.Client,
-	raft *raft.RaftService,onMatchEnd func(matchID string),) *RemoteGameSession {
+	raft *raft.RaftService, chainService *contracts.ChainService  ,onMatchEnd func(matchID string), ) *RemoteGameSession {
 
 	var initialTurnPlayerID string
 	if isHost {
@@ -87,6 +91,7 @@ func New(matchID string,isHost bool,localPlayerID, localUsername,
 		onMatchEnd:          onMatchEnd,
 		closed:              false,
 		startNotified:       false,
+		chainService: chainService,
 	}
 
 	go session.startHeartbeat()
@@ -187,7 +192,7 @@ func (s *RemoteGameSession) sendHeartbeat() {
 
 // ------------------------- AUXILIARES  ---------------------
 
-
+// Carrega o deck de um jogador na blockachain
 func (s *RemoteGameSession) LoadDecks(cardRepo *repository.CardRepository) error {
 	log.Printf("[RemoteGame] Carregando deck do jogador LOCAL...")
 
@@ -208,7 +213,31 @@ func (s *RemoteGameSession) LoadDecks(cardRepo *repository.CardRepository) error
 }
 
 
+func (s *RemoteGameSession) LoadDecksFromBlockchain(playerRepo *repository.PlayerRepository, cardRepo *repository.CardRepository) error {
+	log.Printf("[RemoteGame] Carregando deck LOCAL da BLOCKCHAIN...")
 
+	// Busca jogador no banco para pegar endereço
+	player, err := playerRepo.FindById(s.LocalPlayer.ID)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar player local: %w", err)
+	}
+
+	// Carrega cartas da blockchain
+	cards, err := usecases.LoadPlayerCardsFromChain(s.chainService ,player.Address, s.LocalPlayer.ID, cardRepo)
+	if err != nil {
+		return fmt.Errorf("erro ao carregar deck da blockchain: %w", err)
+	}
+
+	// Pega apenas 3 cartas
+	if len(cards) > 3 {
+		s.LocalPlayer.Deck = cards[:3]
+	} else {
+		s.LocalPlayer.Deck = cards
+	}
+
+	log.Printf("[RemoteGame] Deck local carregado: %d cartas", len(s.LocalPlayer.Deck))
+	return nil
+}
 
 
 func (s *RemoteGameSession) forwardActionToHost(playerID string, action shared.GameAction) error {

@@ -18,6 +18,8 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
+	en "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
+	"context"
 )
 
 // Gerencia todas as partidas do servidor (locais ou remotas)
@@ -94,6 +96,7 @@ func (gsm *GameSessionManager) createLocalMatch(p1, p2 *matchlocal.QueueEntry) {
 		p1.PlayerID, p1.Username, p1.ClientID,
 		p2.PlayerID, p2.Username, p2.ClientID,
 		gsm.broker,
+		gsm.chainService,
 		gsm.cleanupMatch, 
 	)
 
@@ -103,7 +106,7 @@ func (gsm *GameSessionManager) createLocalMatch(p1, p2 *matchlocal.QueueEntry) {
 	gsm.playerMatches[p2.PlayerID] = session.MatchID
 	gsm.mu.Unlock()
 
-	if err := session.LoadDecks(gsm.cardRepository); err != nil {
+	if err := session.LoadDecksFromBlockchain(gsm.playerRepository,gsm.cardRepository); err != nil {
 		log.Printf("[GameSessionManager] Erro ao carregar decks: %v", err)
 		gsm.cleanupMatch(session.MatchID)
 		return
@@ -169,8 +172,6 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 	}
 	
 
-	
-
 	// Cria sessão remota
 	session := remote.New(
 		matchID,
@@ -181,14 +182,16 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 		gsm.broker,
 		gsm.apiClient,
 		gsm.raft,
+		gsm.chainService,
 		gsm.cleanupMatch,
+
 	)
 	
 	gsm.remoteSessions[matchID] = session
 	gsm.playerMatches[localPlayerID] = matchID
 	
 	// Carrega deck do jogador LOCAL
-	if err := session.LoadDecks(gsm.cardRepository); err != nil {
+	if err := session.LoadDecksFromBlockchain(gsm.playerRepository,gsm.cardRepository); err != nil {
 		delete(gsm.remoteSessions, matchID)
 		delete(gsm.playerMatches, localPlayerID)
 		return err
@@ -202,7 +205,8 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 			log.Printf("[GameSessionManager] Jogador remoto não encontrado no banco: %v", err)
 		
 		} else {
-			remoteCards, err := gsm.cardRepository.FindByPlayerID(remotePlayer.ID)
+			// Carrega deck remoto da blockchain 
+			remoteCards, err := gsm.loadRemotePlayerCards(remotePlayer.Address, remotePlayerID)
 			if err == nil {
 				if len(remoteCards) > 3 {
 					session.RemotePlayer.Deck = remoteCards[:3]
@@ -226,7 +230,35 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 }
 
 
+// Helper para carregar cartas do jogador remoto
+func (gsm *GameSessionManager) loadRemotePlayerCards(playerAddress string,playerID string,) ([]*en.Card, error) {
+	if gsm.chainService == nil {
+		return gsm.cardRepository.FindByPlayerID(playerID)
+	}
 
+	ctx := context.Background()
+	tokenIDs, err := gsm.chainService.CardChainService.GetPlayerCards(ctx, playerAddress)
+	if err != nil {
+		return gsm.cardRepository.FindByPlayerID(playerID)
+	}
+
+	cards := make([]*en.Card, 0, len(tokenIDs))
+	for _, tokenID := range tokenIDs {
+		cardMeta, err := gsm.chainService.CardChainService.GetCardMetadata(ctx, tokenID)
+		if err != nil {
+			continue
+		}
+
+		dbCard, err := gsm.cardRepository.FindById(cardMeta.CardID)
+		if err != nil {
+			continue
+		}
+
+		cards = append(cards, dbCard)
+	}
+
+	return cards, nil
+}
 
 
 

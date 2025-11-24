@@ -17,7 +17,7 @@ func main() {
 	
 	cfg := blockchain.Config{
 		RPC:        "http://localhost:7545",
-		PrivateKey: "", // inserir quando quiser testar 
+		PrivateKey: "", // inserir quando quiser testar (se quiser muda pra colocar no executavel)
 		ChainID:    1337,
 	}
 
@@ -38,9 +38,9 @@ func main() {
 	ctx := context.Background()
 	
 	
-	tokenID := uint64(6)  // Token que vai transferir
-	fromPrivateKey := "CHAVE DE QUEM TEM A CARTA"  // 
-	toAddress := "ENDEREÇO DE QUEM VAI RECEBER"        
+	tokenID := uint64(4)  // Token que vai transferir
+	fromPrivateKey := ""  // chave privada que ira fazer a troca (a chave do jogador que quer trocar a carta)
+	toAddress := ""       // endereço de quem vai receber a carta
 
 	fmt.Printf("  Transferindo Token #%d\n", tokenID)
 	fmt.Printf("   Para: %s\n", toAddress)

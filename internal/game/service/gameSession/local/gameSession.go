@@ -1,15 +1,17 @@
 package local
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/aplication/usecases"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/domain/entities"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 	"errors"
-	
+
+	"fmt"
 	"log"
 	"sync"
 	"time"
-
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	"github.com/google/uuid"
 )
 
@@ -41,11 +43,14 @@ type LocalGameSession struct {
 	
 	//  Callback para limpar quando partida termina
 	onMatchEnd func(matchID string) 
+
+	// contratos da chain 
+	chainService *contracts.ChainService  
 }
 
 
 func New(
-	player1ID, player1Username, player1ClientID string,player2ID, player2Username, player2ClientID string, broker *pubsub.Broker,onMatchEnd func(matchID string),) *LocalGameSession {
+	player1ID, player1Username, player1ClientID string,player2ID, player2Username, player2ClientID string, broker *pubsub.Broker,chainService *contracts.ChainService  ,onMatchEnd func(matchID string),) *LocalGameSession {
 	
 	matchID := uuid.New().String()
 	
@@ -72,6 +77,7 @@ func New(
 		broker:              broker,
 		stopChan:            make(chan struct{}),
 		onMatchEnd:          onMatchEnd,
+		chainService: chainService,
 	}
 	
 	log.Printf("[LocalGameSession] Criada: %s | P1: %s vs P2: %s",
@@ -144,6 +150,56 @@ func (s *LocalGameSession) LoadDecks(cardRepo *repository.CardRepository) error 
 	log.Printf("Decks carregados: P1=%d cartas | P2=%d cartas", 
 		len(s.Player1.Deck), len(s.Player2.Deck))
 	
+	return nil
+}
+
+
+
+func (s *LocalGameSession) LoadDecksFromBlockchain(playerRepo *repository.PlayerRepository ,cardRepo *repository.CardRepository) error {
+	log.Printf("[LocalGame] Carregando decks da BLOCKCHAIN...")
+	
+	if s.Player1 == nil || s.Player2 == nil {
+		return errors.New("players não inicializados")
+	}
+
+	// Busca players no banco para pegar endereços
+	p1Entity, err := playerRepo.FindById(s.Player1.ID)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar player1: %w", err)
+	}
+
+	p2Entity, err := playerRepo.FindById(s.Player2.ID)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar player2: %w", err)
+	}
+
+	// Carrega cartas da blockchain
+	p1Cards, err := usecases.LoadPlayerCardsFromChain(s.chainService,p1Entity.Address, s.Player1.ID, cardRepo)
+	if err != nil {
+		return fmt.Errorf("erro ao carregar deck P1 da blockchain: %w", err)
+	}
+
+	p2Cards, err :=  usecases.LoadPlayerCardsFromChain(s.chainService,p2Entity.Address, s.Player2.ID, cardRepo)
+	if err != nil {
+		return fmt.Errorf("erro ao carregar deck P2 da blockchain: %w", err)
+	}
+
+	// Pega apenas 3 cartas
+	if len(p1Cards) > 3 {
+		s.Player1.Deck = p1Cards[:3]
+	} else {
+		s.Player1.Deck = p1Cards
+	}
+
+	if len(p2Cards) > 3 {
+		s.Player2.Deck = p2Cards[:3]
+	} else {
+		s.Player2.Deck = p2Cards
+	}
+
+	log.Printf("[LocalGame] Decks carregados da blockchain: P1=%d | P2=%d", 
+		len(s.Player1.Deck), len(s.Player2.Deck))
+
 	return nil
 }
 

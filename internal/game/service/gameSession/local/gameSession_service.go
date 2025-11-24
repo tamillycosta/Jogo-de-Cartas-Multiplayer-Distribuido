@@ -10,7 +10,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/entities"
-
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
 )
 
@@ -21,15 +21,20 @@ type GameSessionManager struct {
 	activeSessions map[string]*LocalGameSession
 	playerMatches  map[string]string // playerID -> matchID (para limpeza rápida)
 
+
 	playerRepository *repository.PlayerRepository
 	cardRepository   *repository.CardRepository
 	sessionManager   *session.SessionManager
 	matchmaking      *matchmaking.LocalMatchmaking
 	broker           *pubsub.Broker
+
+	// contratos da chain 
+	chainService *contracts.ChainService  
+
 }
 
 func NewGameSessionManager(
-	playerRepo *repository.PlayerRepository, cardRepo *repository.CardRepository, sessionMgr *session.SessionManager, matchmakingMgr *matchmaking.LocalMatchmaking, broker *pubsub.Broker) *GameSessionManager {
+	playerRepo *repository.PlayerRepository, cardRepo *repository.CardRepository, sessionMgr *session.SessionManager, matchmakingMgr *matchmaking.LocalMatchmaking, broker *pubsub.Broker, chainService *contracts.ChainService  ) *GameSessionManager {
 	gsm := &GameSessionManager{
 		activeSessions:   make(map[string]*LocalGameSession),
 		playerMatches:    make(map[string]string),
@@ -38,6 +43,7 @@ func NewGameSessionManager(
 		sessionManager:   sessionMgr,
 		matchmaking:      matchmakingMgr,
 		broker:           broker,
+		chainService: chainService,
 	}
 
 	matchmaking.OnLocalMatchFound = gsm.createLocalMatch
@@ -59,6 +65,7 @@ func (gsm *GameSessionManager) createLocalMatch(p1, p2 *matchmaking.QueueEntry) 
 		p1.PlayerID, p1.Username, p1.ClientID,
 		p2.PlayerID, p2.Username, p2.ClientID,
 		gsm.broker,
+		gsm.chainService,
 		gsm.cleanupMatch, 
 	)
 
@@ -225,5 +232,4 @@ func (gsm *GameSessionManager) Shutdown() {
 
 	log.Println("[SessionManager] Todas as partidas encerradas")
 }
-
 

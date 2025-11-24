@@ -179,8 +179,70 @@ func (cs *CardChainService) GetTotalCards(ctx context.Context) (uint64, error) {
 	return total.Uint64(), nil
 }
 
+// SEBASEAR NO TESTE NO ARQUIVO DO BLOCKCHAIN/TESTE/TRADE
 
 
+// METODO QUE DEVE SER CHAMADO NO SERVIÇO DE TRADE (QUEM REQUSITA A TROCA)
+func (cs *CardChainService) SwapCards(
+	ctx context.Context,
+	myTokenID uint64,        // Carta que você está oferecendo
+	theirTokenID uint64,     // Carta que você quer receber
+	myPrivateKey string,     // Sua chave privada
+) error {
+	
+	auth, err := cs.client.NewTransactorFromPrivateKey(ctx, myPrivateKey)
+	if err != nil {
+		return fmt.Errorf("erro ao criar transactor: %w", err)
+	}
 
+	tx, err := cs.contracts.Card.SwapCards(
+		auth,
+		big.NewInt(int64(myTokenID)),
+		big.NewInt(int64(theirTokenID)),
+	)
+	if err != nil {
+		return fmt.Errorf("erro ao trocar cartas: %w", err)
+	}
 
+	log.Printf(" [Blockchain] Troca iniciada: Token %d <-> Token %d. TX: %s", 
+		myTokenID, theirTokenID, tx.Hash().Hex())
+	
+	receipt, err := bind.WaitMined(ctx, cs.client.Client, tx)
+	if err != nil {
+		return fmt.Errorf("erro ao confirmar troca: %w", err)
+	}
 
+	log.Printf(" [Blockchain] Troca confirmada no bloco %d", receipt.BlockNumber.Uint64())
+	return nil
+}
+
+//  permite que outro jogador execute a troca
+// METODOD QUE DEVE SER CHAMADO QUANDO VC RECEBE UM REQUSISÇÃO DE TROCA DE CARTA (TBM NO TRADE SERVICE)
+func (cs *CardChainService) ApproveForSwap(
+	ctx context.Context,
+	tokenID uint64,
+	swapperAddress string,
+	ownerPrivateKey string,
+) error {
+	
+	auth, err := cs.client.NewTransactorFromPrivateKey(ctx, ownerPrivateKey)
+	if err != nil {
+		return fmt.Errorf("erro ao criar transactor: %w", err)
+	}
+
+	swapperAddr := common.HexToAddress(swapperAddress)
+
+	tx, err := cs.contracts.Card.ApproveForSwap(
+		auth,
+		big.NewInt(int64(tokenID)),
+		swapperAddr,
+	)
+	if err != nil {
+		return fmt.Errorf("erro ao aprovar carta: %w", err)
+	}
+
+	log.Printf(" [Blockchain] Carta %d aprovada para troca com %s", tokenID, swapperAddress)
+	
+	_, err = bind.WaitMined(ctx, cs.client.Client, tx)
+	return err
+}

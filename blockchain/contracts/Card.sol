@@ -45,6 +45,13 @@ contract Card is ERC721, Ownable {
         address from, 
         address to
     );
+    event CardsSwapped(
+    uint256 indexed tokenId1,
+    uint256 indexed tokenId2,
+    address indexed player1,
+    address player2
+);
+    
     
     // ===== CONSTRUCTOR =====
     
@@ -83,7 +90,45 @@ contract Card is ERC721, Ownable {
         return newTokenId;
     }
     
-    // ===== TRANSFERIR CARTA =====
+  // ===== TROCA DUAS  CARTAS =====
+
+// Troca atômica de duas cartas entre dois jogadores
+function swapCards(
+    uint256 _tokenId1,  // Carta do msg.sender
+    uint256 _tokenId2   // Carta que vai receber
+) public {
+    address owner1 = ownerOf(_tokenId1);
+    address owner2 = ownerOf(_tokenId2);
+    
+    // Validações
+    require(owner1 == msg.sender, "Voce nao possui a carta 1");
+    require(owner1 != owner2, "Nao pode trocar consigo mesmo");
+    require(owner2 != address(0), "Carta 2 nao existe");
+    
+    // Validar que owner2 aprovou a troca
+    require(
+        getApproved(_tokenId2) == msg.sender || 
+        isApprovedForAll(owner2, msg.sender),
+        "Carta 2 nao foi aprovada para troca"
+    );
+    
+    // Realizar as duas transferências atomicamente
+    _transfer(owner1, owner2, _tokenId1);
+    _transfer(owner2, owner1, _tokenId2);
+    
+    emit CardsSwapped(_tokenId1, _tokenId2, owner1, owner2);
+}
+
+
+// Aprovar uma carta específica para troca 
+function approveForSwap(uint256 _tokenId, address _swapper) public {
+    address owner = ownerOf(_tokenId);
+    require(owner == msg.sender, "Voce nao possui esta carta");
+    approve(_swapper, _tokenId);
+}
+
+
+    // ===== TRANSFERIR CARTA (so manda uma carta) =====
     
     function transferCard(
         uint256 _tokenId,
@@ -176,7 +221,8 @@ contract Card is ERC721, Ownable {
         if (to != address(0) && from != to) {
             _addTokenToOwnerEnumeration(to, tokenId);
         }
-        
+
+
         // Emite evento customizado para transferências
         if (from != address(0) && to != address(0)) {
             emit CardTransferred(tokenId, cards[tokenId].cardId, from, to);
@@ -206,3 +252,4 @@ contract Card is ERC721, Ownable {
         delete _playerTokensIndex[tokenId];
     }
 }
+

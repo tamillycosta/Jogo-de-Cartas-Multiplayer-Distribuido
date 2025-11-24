@@ -104,7 +104,7 @@ func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*c
 	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager)
 	localMatchmaking := matchlocal.New(myServerInfo.ID, raftService,cardRepo)
 	globalMatchmaking := matchglobal.New(raftService,raftService.Fsm, apiClient, myServerInfo.Address)
-	gameSessionManager := gamesession.New(playerRepo,cardRepo,gameserver.SessionManager,localMatchmaking,globalMatchmaking,broker,myServerInfo.Address,apiClient,raftService)
+	gameSessionManager := gamesession.New(playerRepo,cardRepo,gameserver.SessionManager,localMatchmaking,globalMatchmaking,broker,myServerInfo.Address,apiClient,raftService,contractsService)
 	matchHandler := matchhandler.New(localMatchmaking, gameSessionManager, gameserver.SessionManager, broker)
 
 	// injeta todos os handlers da aplicação para o pub sub

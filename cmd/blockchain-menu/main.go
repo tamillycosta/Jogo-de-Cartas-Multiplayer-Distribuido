@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	s "Jogo-de-Cartas-Multiplayer-Distribuido/blockchain/test/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/loader"
@@ -18,13 +18,14 @@ var (
 	client         *blockchain.BlockchainClient
 	contracts      *loader.Contracts
 	queryService   *s.BlockchainQueryService
+	matchService 	*service.MatchChainService
 	ctx            context.Context
 )
 
 func main() {
 	fmt.Println(" Conectando à blockchain...")
 	
-	// Conectar
+	
 	cfg := blockchain.Config{
 		RPC:        "http://localhost:7545",
 		PrivateKey: "adicione uma chave privada",
@@ -44,7 +45,7 @@ func main() {
 
 	// Inicializar serviços
 	queryService = s.NewBlockchainQueryService(client, contracts)
-	
+	matchService  = service.NewMatchChainService(client, contracts)
 	
 	ctx = context.Background()
 
@@ -74,6 +75,10 @@ func main() {
 			searchByAddress()
 		case "8":
 			showRecentActivity()
+		case "10":
+			showMatchStatistics()
+		case "11":
+			showPlayerMatchStats()
 		case "0":
 			fmt.Println(" Até logo!")
 			return

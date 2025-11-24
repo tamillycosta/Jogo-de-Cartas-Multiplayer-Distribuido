@@ -1,11 +1,11 @@
 package main
 
-
 import (
 	"bufio"
+	"fmt"
+
 	"math/big"
 	"os"
-	"fmt"
 	"strings"
 )
 
@@ -28,6 +28,9 @@ func showMenu() {
 	fmt.Println("    [7] Buscar por Endereço")
 	fmt.Println("    [8] Atividades Recentes")
 	fmt.Println()
+	fmt.Println("   PARTIDAS:")
+	fmt.Println("  	[10] Estatísticas de Partidas")
+	fmt.Println("  	[11] Estatísticas de um Jogador")
 	fmt.Println("  [0] Sair")
 	fmt.Println()
 	fmt.Println(strings.Repeat("═", 80))
@@ -37,7 +40,7 @@ func showMenu() {
 func showSystemReport() {
 	fmt.Println(" RESUMO DO SISTEMA")
 	fmt.Println(strings.Repeat("─", 80))
-	
+
 	summary, err := queryService.GetSystemReport(ctx)
 	if err != nil {
 		fmt.Printf(" Erro: %v\n", err)
@@ -48,12 +51,12 @@ func showSystemReport() {
 	fmt.Printf("   Pacotes Abertos:        %d\n", summary.TotalPackagesOpened)
 	fmt.Printf("   Pacotes Fechados:       %d\n", summary.TotalPackages-summary.TotalPackagesOpened)
 	fmt.Printf("   Total de Cartas (NFTs): %d\n", summary.TotalCards)
-	
+
 	if summary.TotalPackages > 0 {
 		percentOpen := float64(summary.TotalPackagesOpened) / float64(summary.TotalPackages) * 100
 		fmt.Printf("\n   Taxa de Abertura:       %.1f%%\n", percentOpen)
 	}
-	
+
 	fmt.Println()
 }
 
@@ -61,7 +64,7 @@ func showSystemReport() {
 func listAllPackages() {
 	fmt.Println(" LISTA DE PACOTES")
 	fmt.Println(strings.Repeat("─", 80))
-	
+
 	summary, err := queryService.GetSystemReport(ctx)
 	if err != nil {
 		fmt.Printf(" Erro: %v\n", err)
@@ -110,7 +113,7 @@ func listAllPackages() {
 // ===== OPÇÃO 3: DETALHES DE UM PACOTE =====
 func showPackageDetails() {
 	packageID := readInput("Digite o Package ID: ")
-	
+
 	fmt.Println("\n DETALHES DO PACOTE")
 	fmt.Println(strings.Repeat("─", 80))
 
@@ -127,11 +130,11 @@ func showPackageDetails() {
 
 	fmt.Printf("\n   Package ID:  %s\n", pkg.PackageID)
 	fmt.Printf("   Status:      %s\n", status)
-	
+
 	if pkg.Opened {
 		fmt.Printf("   Aberto Por:  %s\n", pkg.OpenedBy)
 	}
-	
+
 	fmt.Printf("   Criado Em:   %s\n", formatTimestamp(pkg.CreatedAt))
 	fmt.Printf("\n   Cartas no Pacote (%d):\n", len(pkg.CardIDs))
 	fmt.Println(strings.Repeat("  ─", 40))
@@ -153,7 +156,7 @@ func showPackageDetails() {
 func showPlayerReport() {
 	playerAddress := readInput("Digite o endereço do jogador (0x...): ")
 	playerID := readInput("Digite o Player ID (opcional, Enter para pular): ")
-	
+
 	if playerID == "" {
 		playerID = "N/A"
 	}
@@ -232,7 +235,7 @@ func showCardHistory() {
 		fmt.Println("\n    Nenhuma transferência registrada.")
 	}
 	fmt.Println()
-}	
+}
 
 // ===== OPÇÃO 6: DETALHES DA TRANSAÇÃO =====
 func showTransactionDetails() {
@@ -246,8 +249,6 @@ func showTransactionDetails() {
 		fmt.Printf(" Erro: %v\n", err)
 		return
 	}
-
-	
 
 	fmt.Printf("\n TX Hash:     %s\n", tx.TxHash)
 	fmt.Printf("   Bloco:       #%d\n", tx.BlockNumber)
@@ -275,7 +276,7 @@ func searchByAddress() {
 	fmt.Printf("\n Endereço: %s\n", address)
 	fmt.Printf("   Saldo:    %.6f ETH\n", player.BalanceETH)
 	fmt.Printf("   Cartas:   %d\n", player.TotalCards)
-	
+
 	if player.TotalCards > 0 {
 		fmt.Println("\n  Templates das cartas:")
 		for i, card := range player.Cards {
@@ -323,6 +324,78 @@ func showRecentActivity() {
 	fmt.Println()
 }
 
+// =================== PARTIDAS =======================
+
+func showMatchStatistics() {
+	fmt.Println(" ESTATÍSTICAS DE PARTIDAS")
+	fmt.Println(strings.Repeat("─", 80))
+
+	stats, err := matchService.GetSystemStats(ctx)
+	if err != nil {
+		fmt.Printf(" Erro: %v\n", err)
+		return
+	}
+
+	fmt.Printf("\n   RESUMO GERAL:\n")
+	fmt.Printf("     Total de Partidas:  %d\n", stats["total_matches"])
+	fmt.Printf("     Partidas Locais:    %d\n", stats["local_matches"])
+	fmt.Printf("     Partidas Remotas:   %d\n", stats["remote_matches"])
+	fmt.Printf("     Em Andamento:       %d\n", stats["active"])
+	fmt.Printf("     Finalizadas:        %d\n", stats["finished"])
+
+	if stats["total_matches"] > 0 {
+		localPercent := float64(stats["local_matches"]) / float64(stats["total_matches"]) * 100
+		remotePercent := float64(stats["remote_matches"]) / float64(stats["total_matches"]) * 100
+
+		fmt.Printf("\n   DISTRIBUIÇÃO:\n")
+		fmt.Printf("     Local:  %.1f%%\n", localPercent)
+		fmt.Printf("     Remota: %.1f%%\n", remotePercent)
+	}
+
+	fmt.Println()
+}
+
+func showPlayerMatchStats() {
+	playerID := readInput("Digite o Player ID: ")
+
+	fmt.Println("\n ESTATÍSTICAS DO JOGADOR")
+	fmt.Println(strings.Repeat("─", 80))
+
+	
+	stats, err := matchService.GetPlayerStats(ctx, playerID)
+	if err != nil {
+		fmt.Printf(" Erro: %v\n", err)
+		return
+	}
+
+	fmt.Printf("\n  Player ID: %s\n", playerID)
+	fmt.Printf("\n  ESTATÍSTICAS:\n")
+	fmt.Printf("     Total de Partidas: %d\n", stats.TotalMatches)
+	fmt.Printf("     Vitórias:          %d\n", stats.Wins)
+	fmt.Printf("     Derrotas:          %d\n", stats.Losses)
+	fmt.Printf("     Taxa de Vitória:   %d%%\n", stats.WinRate)
+
+	if stats.TotalMatches > 0 {
+		fmt.Printf("\n   PERFORMANCE:\n")
+
+		var performance string
+		switch {
+		case stats.WinRate >= 70:
+			performance = " Excelente"
+		case stats.WinRate >= 50:
+			performance = " Bom"
+		case stats.WinRate >= 30:
+			performance = "  Regular"
+		default:
+			performance = " Precisa Melhorar"
+		}
+
+		fmt.Printf("     Avaliação: %s\n", performance)
+	}
+
+	fmt.Println()
+}
+
 // ===== HELPERS =====
 
 func readInput(prompt string) string {
@@ -346,7 +419,6 @@ func formatTimestamp(ts uint64) string {
 	if ts == 0 {
 		return "N/A"
 	}
-	// Simplificado - você pode usar time.Unix se quiser
 	return fmt.Sprintf("%d", ts)
 }
 

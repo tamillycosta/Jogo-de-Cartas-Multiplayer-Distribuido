@@ -16,13 +16,13 @@ import (
 // Serviço para fazer colsulta a blockchain 
 type BlockchainQueryService struct {
 	client    *c.BlockchainClient
-	contracts *loader.Contracts
+	Contracts *loader.Contracts
 }
 
-func NewBlockchainQueryService(client *c.BlockchainClient, contracts *loader.Contracts) *BlockchainQueryService {
+func NewBlockchainQueryService(client *c.BlockchainClient, Contracts *loader.Contracts) *BlockchainQueryService {
 	return &BlockchainQueryService{
 		client:    client,
-		contracts: contracts,
+		Contracts: Contracts,
 	}
 }
 
@@ -79,7 +79,6 @@ type Summary struct {
 }
 
 
-
 type TransferEvent struct {
 	TokenID      uint64
 	CardID       string
@@ -107,7 +106,7 @@ type CardHistoryReport struct {
 // Gera relatório completo de um pacote
 func (qs *BlockchainQueryService) GetPackageReport(ctx context.Context, packageID string) (*PackageReport, error) {
 	
-	pkg, err := qs.contracts.Package.GetPackage(qs.client.CallOpts(), packageID)
+	pkg, err := qs.Contracts.Package.GetPackage(qs.client.CallOpts(), packageID)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar pacote: %w", err)
 	}
@@ -133,7 +132,7 @@ func (qs *BlockchainQueryService) GetCardReport(ctx context.Context, cardID stri
 	
 
 	// Buscar tokenId
-	tokenId, err := qs.contracts.Card.CardIdToTokenId(qs.client.CallOpts(), cardID)
+	tokenId, err := qs.Contracts.Card.CardIdToTokenId(qs.client.CallOpts(), cardID)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar tokenId: %w", err)
 	}
@@ -143,7 +142,7 @@ func (qs *BlockchainQueryService) GetCardReport(ctx context.Context, cardID stri
 	}
 
 	// Buscar metadados
-	cardToken, err := qs.contracts.Card.GetCardMetadata(
+	cardToken, err := qs.Contracts.Card.GetCardMetadata(
 		qs.client.CallOpts(),
 		tokenId,
 	)
@@ -172,14 +171,14 @@ func (qs *BlockchainQueryService) GetPlayerReport(ctx context.Context, playerID 
 		return nil, fmt.Errorf("erro ao buscar saldo: %w", err)
 	}
 
-	tokenIds, err := qs.contracts.Card.GetPlayerCards(qs.client.CallOpts(), addr)
+	tokenIds, err := qs.Contracts.Card.GetPlayerCards(qs.client.CallOpts(), addr)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar cartas: %w", err)
 	}
 
 	cards := make([]CardReport, 0, len(tokenIds))
 	for _, tokenId := range tokenIds {
-		cardToken, err := qs.contracts.Card.GetCardMetadata(
+		cardToken, err := qs.Contracts.Card.GetCardMetadata(
 			qs.client.CallOpts(),
 			tokenId,
 		)
@@ -255,12 +254,12 @@ func (qs *BlockchainQueryService) GetTransactionDetails(ctx context.Context, txH
 
 // Gera relatório geral do sistema
 func (qs *BlockchainQueryService) GetSystemReport(ctx context.Context) (*Summary, error) {
-	totalPackages, err := qs.contracts.Package.GetTotalPackages(qs.client.CallOpts())
+	totalPackages, err := qs.Contracts.Package.GetTotalPackages(qs.client.CallOpts())
 	if err != nil {
 		return nil, err
 	}
 
-	totalCards, err := qs.contracts.Card.GetTotalCards(qs.client.CallOpts())
+	totalCards, err := qs.Contracts.Card.GetTotalCards(qs.client.CallOpts())
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +267,7 @@ func (qs *BlockchainQueryService) GetSystemReport(ctx context.Context) (*Summary
 	// Contar pacotes abertos
 	opened := 0
 	for i := int64(0); i < totalPackages.Int64(); i++ {
-		pkg, err := qs.contracts.Package.GetPackageByIndex(qs.client.CallOpts(), big.NewInt(i))
+		pkg, err := qs.Contracts.Package.GetPackageByIndex(qs.client.CallOpts(), big.NewInt(i))
 		if err != nil {
 			continue
 		}
@@ -288,7 +287,7 @@ func (qs *BlockchainQueryService) GetSystemReport(ctx context.Context) (*Summary
 // retorna o histórico completo de uma carta incluindo todas as transferências
 func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID string) (*CardHistoryReport, error) {
 	//  Busca os metadados da carta
-	tokenId, err := qs.contracts.Card.CardIdToTokenId(qs.client.CallOpts(), cardID)
+	tokenId, err := qs.Contracts.Card.CardIdToTokenId(qs.client.CallOpts(), cardID)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar tokenId: %w", err)
 	}
@@ -297,7 +296,7 @@ func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID str
 		return nil, fmt.Errorf("carta não encontrada na blockchain")
 	}
 
-	cardToken, err := qs.contracts.Card.GetCardMetadata(
+	cardToken, err := qs.Contracts.Card.GetCardMetadata(
 		qs.client.CallOpts(),
 		tokenId,
 	)
@@ -306,7 +305,7 @@ func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID str
 	}
 
 	//Buscar evento de mint (primeira transferência)
-	mintEvents, err := qs.contracts.Card.FilterCardMinted(
+	mintEvents, err := qs.Contracts.Card.FilterCardMinted(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -346,7 +345,7 @@ func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID str
 	}
 
 	// Buscar eventos de transferência
-	transferEvents, err := qs.contracts.Card.FilterCardTransferred(
+	transferEvents, err := qs.Contracts.Card.FilterCardTransferred(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -403,3 +402,5 @@ func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID str
 		Transfers:    transfers,
 	}, nil
 }
+
+

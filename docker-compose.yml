@@ -34,6 +34,8 @@ services:
       - mysql_data_b:/var/lib/mysql
     networks:
       - game-network
+    ports:
+      - "3308:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s
@@ -58,6 +60,8 @@ services:
       - mysql_data_c:/var/lib/mysql
     networks:
       - game-network
+    ports:
+      - "3309:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
       interval: 10s

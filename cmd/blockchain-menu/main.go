@@ -1,31 +1,27 @@
-
-
 package main
 
 import (
-	
-	"context"
-	"fmt"
-	"log"
-	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	s "Jogo-de-Cartas-Multiplayer-Distribuido/blockchain/test/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/loader"
-	
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
+	"context"
+	"fmt"
+	"log"
 )
 
 var (
-	client         *blockchain.BlockchainClient
-	contracts      *loader.Contracts
-	queryService   *s.BlockchainQueryService
-	matchService 	*service.MatchChainService
-	ctx            context.Context
+	client       *blockchain.BlockchainClient
+	contracts    *loader.Contracts
+	queryService *s.BlockchainQueryService
+	matchService *service.MatchChainService
+	ctx          context.Context
 )
 
+// Menu interação para consulta das operações na chain
 func main() {
 	fmt.Println(" Conectando à blockchain...")
-	
-	
+
 	cfg := blockchain.Config{
 		RPC:        "http://localhost:7545",
 		PrivateKey: "adicione uma chave privada",
@@ -45,8 +41,8 @@ func main() {
 
 	// Inicializar serviços
 	queryService = s.NewBlockchainQueryService(client, contracts)
-	matchService  = service.NewMatchChainService(client, contracts)
-	
+	matchService = service.NewMatchChainService(client, contracts)
+
 	ctx = context.Background()
 
 	fmt.Println(" Conectado com sucesso!")
@@ -55,9 +51,9 @@ func main() {
 	for {
 		showMenu()
 		option := readInput("Escolha uma opção: ")
-		
+
 		clearScreen()
-		
+
 		switch option {
 		case "1":
 			showSystemReport()
@@ -85,8 +81,7 @@ func main() {
 		default:
 			fmt.Println(" Opção inválida!")
 		}
-		
+
 		waitForEnter()
 	}
 }
-

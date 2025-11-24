@@ -64,7 +64,7 @@ func New(myInfo *entities.ServerInfo, bindPort int) (*Discovery, error) {
 	return d, nil
 }
 func (d *Discovery) startAutoDiscovery(gossipPort int) {
-	const broadcastPort = 9000
+	broadcastPort := util.GetPortFromEnv("DISCOVERY_PORT", 9000)
 
 	// conjunto para rastrear servidores já processados
 	discoveredServers := make(map[string]bool)

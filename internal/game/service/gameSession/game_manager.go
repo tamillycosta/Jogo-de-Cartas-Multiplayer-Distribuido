@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 	"time"
-
+	contracts "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/comunication/client"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession/local"
@@ -34,6 +34,9 @@ type GameSessionManager struct {
 	localMatchmaking     *matchlocal.LocalMatchmaking
 	globalMatchmaking    *matchglobal.GlobalMatchmakingService
 
+	// para registro no contrato de partida na chain 
+	chainService         *contracts.ChainService
+
 	// comunicação 
 	broker               *pubsub.Broker
 	serverID             string
@@ -48,9 +51,11 @@ func New(
 	localMatchmaking *matchlocal.LocalMatchmaking,
 	globalMatchmaking *matchglobal.GlobalMatchmakingService,
 	broker *pubsub.Broker,
+	
 	serverID string,
 	client	*client.Client,
 	raft 				*raft.RaftService,
+	chainService *contracts.ChainService,
 ) *GameSessionManager {
 	gsm := &GameSessionManager{
 		localSessions:        make(map[string]*local.LocalGameSession),
@@ -65,6 +70,7 @@ func New(
 		serverID:             serverID,
 		apiClient: client,
 		raft: raft,
+		chainService: chainService,
 	}
 	
 	// Registra callbacks
@@ -104,6 +110,8 @@ func (gsm *GameSessionManager) createLocalMatch(p1, p2 *matchlocal.QueueEntry) {
 	}
 
 	gsm.notifyLocalMatchCreated(session, p1.ClientID, p2.ClientID)
+	// registra a partida na blockchain
+	go gsm.registerMatchStart(session.MatchID, false, p1.PlayerID, p2.PlayerID, gsm.serverID)
 	go session.Start()
 
 	log.Printf("[GameSessionManager] Partida local criada: %s", session.MatchID)
@@ -204,6 +212,8 @@ func (gsm *GameSessionManager) CreateRemoteMatch(
 				log.Printf("[GameSessionManager] Deck remoto carregado: %d cartas", len(session.RemotePlayer.Deck))
 			}
 		}
+		//  host registra partida na blockchain 
+		go gsm.registerMatchStart(matchID, true, localPlayerID, remotePlayerID, gsm.serverID)
 	}
 	
 	// Notifica cliente local e inica partida 

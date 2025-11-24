@@ -11,11 +11,19 @@ import (
 func (gsm *GameSessionManager) cleanupMatch(matchID string) {
 	gsm.mu.Lock()
 	defer gsm.mu.Unlock()
-
+		// Busca a sessão (local ou remota)
+		
+	
 	// LOCAL 
 	if session, exists := gsm.localSessions[matchID]; exists {
+		// pega dados da partida
+		winnerID := session.WinnerID
+		totalTurns := uint64(session.TurnNumber)
+		
+
 		log.Printf(" [SessionManager] Limpando partida LOCAL %s", matchID)
 		
+
 		// Remove dos mapas
 		if session.Player1 != nil {
 			delete(gsm.playerMatches, session.Player1.ID)
@@ -32,11 +40,26 @@ func (gsm *GameSessionManager) cleanupMatch(matchID string) {
 		session.Close()
 		
 		log.Printf("[SessionManager] Partida LOCAL %s limpa", matchID)
+		go gsm.registerMatchFinish(matchID, winnerID, totalTurns, false, "")
+
 		return
 	}
 
 	// REMOTA
 	if session, exists := gsm.remoteSessions[matchID]; exists {
+		// pegada
+		winnerID := session.WinnerID
+		
+		totalTurns := uint64(session.TurnNumber)
+		var loser string
+
+		if(winnerID != session.LocalPlayer.ID){
+			loser = session.LocalPlayer.ID
+		}else{
+			loser = session.RemotePlayer.ID
+		}
+		
+
 		log.Printf("[SessionManager] Limpando partida REMOTA %s", matchID)
 		
 		if session.LocalPlayer != nil {
@@ -49,10 +72,15 @@ func (gsm *GameSessionManager) cleanupMatch(matchID string) {
 		session.Close()
 		
 		log.Printf("[SessionManager] Partida REMOTA %s limpa", matchID)
+		go gsm.registerMatchFinish(matchID, winnerID, totalTurns, true, loser)
+
 		return
 	}
 
-	log.Printf("⚠️ [SessionManager] Partida %s não encontrada para limpeza", matchID)
+
+	
+
+	log.Printf("[SessionManager] Partida %s não encontrada para limpeza", matchID)
 }
 
 // 
@@ -63,7 +91,7 @@ func (gsm *GameSessionManager) HandleClientDisconnect(clientID string) {
 		return
 	}
 
-	log.Printf("🔌 [SessionManager] Cliente desconectado: %s (playerID: %s)", clientID, playerID)
+	log.Printf(" [SessionManager] Cliente desconectado: %s (playerID: %s)", clientID, playerID)
 	gsm.HandlePlayerDisconnect(playerID)
 }
 

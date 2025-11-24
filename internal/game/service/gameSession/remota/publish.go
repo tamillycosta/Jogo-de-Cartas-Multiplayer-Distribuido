@@ -24,7 +24,6 @@ type GameStateUpdate struct {
 
 
 
-
 func (s *RemoteGameSession) notifyLocalClient(eventType string) {
 	topic := "match." + s.MatchID
 	status := s.Status
@@ -38,11 +37,11 @@ func (s *RemoteGameSession) notifyLocalClient(eventType string) {
 		"type":       "game_update",
 		"event_type": eventType,
 		"match_id":   s.MatchID,
-		"game_state": s.buildGameState(), // ✅ USA buildGameState normal (perspectiva local)
+		"game_state": s.buildGameState(), 
 		"timestamp":  time.Now().Unix(),
 	}
 
-	// ✅ DEBUG: Log para ver o que está sendo enviado
+	
 	log.Printf("[RemoteGame] Notificando cliente local | Event: %s | Turn: %d | CurrentTurn: %s", 
 		eventType, s.TurnNumber, s.CurrentTurnPlayerID)
 

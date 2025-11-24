@@ -99,14 +99,9 @@ func (ms *MatchChainService) RegisterMatchStart(
 	return nil
 }
 
-// ===== REGISTRAR FIM DE PARTIDA =====
+// ===================== REGISTRAR FIM DE PARTIDA ===================
 
-func (ms *MatchChainService) RegisterMatchFinish(
-	ctx context.Context,
-	matchID string,
-	winnerID string,
-	totalTurns uint64,
-) error {
+func (ms *MatchChainService) RegisterMatchFinish(ctx context.Context,matchID string,winnerID string,totalTurns uint64,)error {
 	auth, err := ms.client.NewTransactor(ctx)
 	if err != nil {
 		return fmt.Errorf("erro ao criar transactor: %w", err)
@@ -135,13 +130,9 @@ func (ms *MatchChainService) RegisterMatchFinish(
 	return nil
 }
 
-// ===== REGISTRAR ABANDONO =====
+// =============== REGISTRAR ABANDONO ===============
 
-func (ms *MatchChainService) RegisterMatchAbandon(
-	ctx context.Context,
-	matchID string,
-	playerID string,
-) error {
+func (ms *MatchChainService) RegisterMatchAbandon(ctx context.Context,matchID string,playerID string,) error {
 	auth, err := ms.client.NewTransactor(ctx)
 	if err != nil {
 		return fmt.Errorf("erro ao criar transactor: %w", err)
@@ -168,7 +159,7 @@ func (ms *MatchChainService) RegisterMatchAbandon(
 	return nil
 }
 
-// ===== CONSULTAS =====
+// =================== CONSULTAS ============================
 
 func (ms *MatchChainService) GetMatchInfo(ctx context.Context, matchID string) (*MatchInfo, error) {
 	match, err := ms.contracts.Match.GetMatch(ms.client.CallOpts(), matchID)

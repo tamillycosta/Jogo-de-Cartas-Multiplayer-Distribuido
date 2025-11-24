@@ -85,8 +85,6 @@ func (s *LocalGameSession) ProcessAction(playerID string, action shared.GameActi
 	}
 	
 	
-	
-	
 	// Verifica vitória 
 	if winner := s.checkWinCondition(); winner != "" {
 		winnerPlayer := s.getPlayer(winner)

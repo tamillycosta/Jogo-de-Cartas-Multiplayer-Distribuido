@@ -23,8 +23,6 @@ type PackageInfo struct {
 }
 
 
-
-
 type PackageChainService struct {
 	client    *c.BlockchainClient
 	contracts *loader.Contracts

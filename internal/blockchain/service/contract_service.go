@@ -11,6 +11,7 @@ type ChainService struct {
 	Client *c.BlockchainClient
 	PackageChainService *PackageChainService // serviço para gerir ações relacionadas aos pacotes
 	CardChainService *CardChainService
+	MatchChainService *MatchChainService
 }
 
 func New(client *c.BlockchainClient) *ChainService {
@@ -20,5 +21,6 @@ func New(client *c.BlockchainClient) *ChainService {
 		Client: client,
 		PackageChainService: NewPackageChainService(client,contracts),
 		CardChainService: NewCardChainService(client,contracts),
+		MatchChainService: NewMatchChainService(client,contracts),
 	}
 }

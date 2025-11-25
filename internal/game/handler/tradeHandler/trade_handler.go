@@ -1,6 +1,7 @@
 package tradehandler
 
 import (
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/repository"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/session"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/tradeService"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/pubsub"
@@ -14,13 +15,15 @@ type TradeTopicHandler struct {
 	tradeService *tradeService.TradeService
 	broker       *pubsub.Broker
 	authSession  *session.SessionManager
+	playerRepo   *repository.PlayerRepository
 }
 
-func New(tradeService *tradeService.TradeService, broker *pubsub.Broker, authSession *session.SessionManager) *TradeTopicHandler {
+func New(tradeService *tradeService.TradeService, broker *pubsub.Broker, authSession *session.SessionManager, playerRepo *repository.PlayerRepository) *TradeTopicHandler {
 	return &TradeTopicHandler{
 		tradeService: tradeService,
 		broker:       broker,
 		authSession:  authSession,
+		playerRepo:   playerRepo,
 	}
 }
 
@@ -37,41 +40,45 @@ func (h *TradeTopicHandler) HandleTopic(clientID string, topic string, data inte
 
 // HANDLER DO PUB SUB PARA SOLICITACAO DE TROCA
 func (h *TradeTopicHandler) handleRequestTrade(clientID string, data interface{}) error {
-
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
 		return h.sendError(clientID, "formato de dados invalido")
 	}
 
-	// O cliente (Jogador A) envia a carta dele, a carta do Jogador B, e o ID do Jogador B
-	cardAID, _ := dataMap["card_a_id"].(string)
-	cardBID, _ := dataMap["card_b_id"].(string)
-	playerBID, _ := dataMap["player_b_id"].(string)
+	cardID, _ := dataMap["card_id"].(string)
+	targetUsername, _ := dataMap["target_username"].(string)
 
-	if cardAID == "" || cardBID == "" || playerBID == "" {
-		return h.sendError(clientID, "card_a_id, card_b_id, e player_b_id sao obrigatorios")
+	if cardID == "" || targetUsername == "" {
+		return h.sendError(clientID, "card_id e target_username sao obrigatorios")
 	}
 
-	// O serviço de troca cuida de verificar o líder e aplicar o comando Raft
-	err := h.tradeService.RequestTrade(clientID, cardAID, cardBID, playerBID)
+	// 1. Buscar o ID do jogador destinatário pelo NOME usando o Repositório
+	targetPlayer, err := h.playerRepo.FindByUsername(targetUsername)
+	if err != nil {
+		log.Printf("Erro ao buscar usuario: %v", err)
+		return h.sendError(clientID, "Erro interno ao buscar usuario destino")
+	}
+	if targetPlayer == nil {
+		return h.sendError(clientID, fmt.Sprintf("Usuario '%s' nao encontrado", targetUsername))
+	}
+
+	log.Printf("[TradeHandler] Username '%s' resolvido para ID: %s", targetUsername, targetPlayer.ID)
+
+	// 2. Chamar o serviço com os IDs
+	err = h.tradeService.RequestTrade(clientID, cardID, targetPlayer.ID)
 
 	if err != nil {
 		log.Printf("[TradeHandler] Erro ao processar troca: %v", err)
 		return h.sendError(clientID, err.Error())
 	}
 
-	// Se chegou aqui, o comando foi *aceito* (encaminhado ou aplicado)
 	response := map[string]interface{}{
 		"type":    "trade_requested",
 		"success": true,
-		"message": "Solicitacao de troca processada pelo cluster.",
+		"message": fmt.Sprintf("Carta enviada para %s com sucesso!", targetUsername),
 	}
 
 	h.publishResponse(clientID, response)
-
-	// (Idealmente) Você também publicaria uma notificação para o Jogador B
-	// h.notifyPlayerB(playerBID, ...);
-
 	return nil
 }
 

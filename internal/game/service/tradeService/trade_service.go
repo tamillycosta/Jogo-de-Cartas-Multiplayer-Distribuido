@@ -32,28 +32,29 @@ func New(
 }
 
 // RequestTrade é chamado pelo Pub/Sub. Ele verifica a posse e encaminha ao líder.
-func (ts *TradeService) RequestTrade(clientID string, cardAID, cardBID, playerBID string) error {
-	log.Printf("[TradeService] Cliente %s solicitando troca: %s por %s", clientID, cardAID, cardBID)
-
-	playerAID, exists := ts.sessionManager.GetPlayerID(clientID)
+func (ts *TradeService) RequestTrade(clientID string, cardID, targetPlayerID string) error {
+	playerID, exists := ts.sessionManager.GetPlayerID(clientID)
 	if !exists {
-		return errors.New("sessao do jogador A nao encontrada")
+		return errors.New("sessao do jogador nao encontrada")
 	}
+	
+	if playerID == targetPlayerID {
+		return errors.New("voce nao pode enviar cartas para si mesmo")
+	}
+
+	log.Printf("[TradeService] %s enviando carta %s para %s", playerID, cardID, targetPlayerID)
 
 	cmd := comands.TradeCardsCommand{
-		PlayerAID: playerAID,
-		CardAID:   cardAID,
-		PlayerBID: playerBID,
-		CardBID:   cardBID,
-		RequestID: uuid.New().String(),
+		FromPlayerID: playerID,
+		ToPlayerID:   targetPlayerID,
+		CardID:       cardID,
+		RequestID:    uuid.New().String(),
 	}
 
-	// Se não for líder, encaminha
 	if !ts.raft.IsLeader() {
 		return ts.forwardTradeRequestToLeader(cmd)
 	}
 
-	// Se for líder, executa
 	return ts.ExecuteTradeAsLeader(cmd)
 }
 

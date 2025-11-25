@@ -7,14 +7,8 @@ const (
 
 // Representa dados para uma troca atômica
 type TradeCardsCommand struct {
-	// Jogador A
-	PlayerAID string `json:"player_a_id"`
-	CardAID   string `json:"card_a_id"` // Carta que A vai dar
-
-	// Jogador B
-	PlayerBID string `json:"player_b_id"`
-	CardBID   string `json:"card_b_id"` // Carta que B vai dar
-
-	// RequestID para idempotência
-	RequestID string `json:"request_id"`
+	FromPlayerID string `json:"from_player_id"`
+	ToPlayerID   string `json:"to_player_id"`
+	CardID       string `json:"card_id"`
+	RequestID    string `json:"request_id"`
 }

@@ -101,7 +101,7 @@ func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*c
 	authHandler := authhandler.New(authService, broker)
 	packgehandler := packgehandler.New(pkgService, broker)
 
-	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager)
+	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager, playerRepo)
 	localMatchmaking := matchlocal.New(myServerInfo.ID, raftService,cardRepo)
 	globalMatchmaking := matchglobal.New(raftService,raftService.Fsm, apiClient, myServerInfo.Address)
 	gameSessionManager := gamesession.New(playerRepo,cardRepo,gameserver.SessionManager,localMatchmaking,globalMatchmaking,broker,myServerInfo.Address,apiClient,raftService,contractsService)

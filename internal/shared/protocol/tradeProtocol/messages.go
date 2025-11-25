@@ -4,9 +4,8 @@ package tradeprotocol
 
 // Request de troca (publicação do cliente)
 type TradeRequest struct {
-	CardAID   string `json:"card_a_id"`   // Carta que eu (cliente) quero dar
-	PlayerBID string `json:"player_b_id"` // ID do jogador com quem quero trocar
-	CardBID   string `json:"card_b_id"`   // Carta que eu quero receber
+	CardID         string `json:"card_id"`          // Carta que eu (cliente) quero dar
+	TargetUsername string `json:"target_username"`  // Nome do jogador que vai receber
 }
 
 // Resposta da troca

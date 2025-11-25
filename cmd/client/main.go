@@ -83,6 +83,7 @@ func main() {
 			fmt.Print("\n🎮 Digite seu nome de usuário para login: ")
 			client.subscribe("response." + client.clientID)
 			client.subscribe("package.response." + client.clientID)
+			client.subscribe("trade.response." + client.clientID)
 			username, _ := reader.ReadString('\n')
 			username = strings.TrimSpace(username)
 	
@@ -137,6 +138,24 @@ func main() {
 
 		case "list", "ls", "inv":
 			client.listCards()
+
+		case "give", "g":
+			if client.inMatch {
+        		fmt.Println("⚠️ Você não pode trocar cartas durante uma partida!")
+        		continue
+    		}
+
+    	// Valida argumentos: give <uuid> <nome>
+    	if len(parts) < 3 {
+        	fmt.Println("❌ Uso correto: give <ID_DA_CARTA> <NOME_DO_JOGADOR>")
+        	fmt.Println("   Dica: Use o comando 'list' para copiar o ID da carta.")
+        	continue
+    	}
+
+    	cardUUID := parts[1]
+    	targetUser := parts[2]
+
+    	client.giveCard(cardUUID, targetUser)
 			
 		case "card", "c":
 			if !client.inMatch {
@@ -197,6 +216,9 @@ func (c *Client) listen() {
 		}
 
 		switch msgType {
+
+		case "trade.response":
+			c.handleTradeResponse(msg)
 
 		case "inventory_list":
 			c.handleInventoryList(msg)
@@ -355,5 +377,24 @@ func (c *Client) handleInventoryList(msg map[string]interface{}) {
             uuid)
     }
     fmt.Println("╚═════╩══════════════════════╩══════════╩══════╩═════════════════╝")
-    fmt.Println("💡 Dica: Use o UUID para enviar cartas com o comando 'give'")
+}
+
+func (c *Client) handleTradeResponse(msg map[string]interface{}) {
+    data, ok := msg["data"].(map[string]interface{})
+    if !ok { 
+        return 
+    }
+
+    success, _ := data["success"].(bool)
+    
+    if success {
+        message, _ := data["message"].(string)
+        fmt.Println("\n✅ SUCESSO NA TRANSFERÊNCIA!")
+        fmt.Printf("   %s\n", message)
+    } else {
+        errorMsg, _ := data["error"].(string)
+        fmt.Println("\n❌ FALHA NA TRANSFERÊNCIA")
+        fmt.Printf("   Erro: %s\n", errorMsg)
+    }
+    fmt.Print("\n🎯 > ") // Restaura o prompt
 }

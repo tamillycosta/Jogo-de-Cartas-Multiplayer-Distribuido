@@ -75,7 +75,7 @@ func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*c
 	raftService, _ := raft.InitRaft(playerRepo, packageRepo, cardRepo, myServerInfo, apiClient)
 	authService := authService.New(playerRepo, apiClient, discovery.KnownServers, raftService, gameserver.SessionManager, contractsService.Client)
 	pkgService := packageService.New(packageRepo, cardRepo, playerRepo,apiClient, raftService, gameserver.SessionManager, contractsService)
-	tradeSvc := tradeService.New(apiClient, raftService, gameserver.SessionManager)
+	tradeSvc := tradeService.New(apiClient, raftService, gameserver.SessionManager, contractsService, playerRepo)
 
 	seedSvc := seedService.New(raftService, pkgService)
 

@@ -246,3 +246,17 @@ func (cs *CardChainService) ApproveForSwap(
 	_, err = bind.WaitMined(ctx, cs.client.Client, tx)
 	return err
 }
+
+func (cs *CardChainService) GetTokenIDByCardID(ctx context.Context, cardID string) (uint64, error) {
+    // Chama o mapeamento público cardIdToTokenId do contrato Card.sol
+    tokenIdBig, err := cs.contracts.Card.CardIdToTokenId(cs.client.CallOpts(), cardID)
+    if err != nil {
+        return 0, fmt.Errorf("erro ao consultar contrato: %w", err)
+    }
+
+    if tokenIdBig.Cmp(big.NewInt(0)) == 0 {
+        return 0, fmt.Errorf("carta %s não encontrada na blockchain", cardID)
+    }
+
+    return tokenIdBig.Uint64(), nil
+}

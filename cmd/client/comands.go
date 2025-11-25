@@ -125,3 +125,26 @@ func (c *Client) listCards() {
 	c.conn.WriteJSON(msg)
 	fmt.Println("\n📚 Buscando sua coleção de cartas...")
 }
+
+func (c *Client) giveCard(cardUUID, targetUsername string) {
+    // Verifica se o usuário está logado
+    if c.playerID == "" {
+        fmt.Println("❌ Você precisa fazer login primeiro!")
+        return
+    }
+
+    // Monta a mensagem para o tópico trade.request_trade
+    msg := map[string]interface{}{
+        "type":  "publish",
+        "topic": "trade.request_trade",
+        "data": map[string]interface{}{
+            "card_id":         cardUUID,       // O UUID que aparece no comando 'list'
+            "target_username": targetUsername, // O nome do jogador destino
+        },
+    }
+
+    c.conn.WriteJSON(msg)
+    fmt.Printf("\n🎁 Enviando solicitação de transferência...\n")
+    fmt.Printf("   Carta: %s\n", cardUUID)
+    fmt.Printf("   Para:  %s\n", targetUsername)
+}

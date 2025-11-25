@@ -3,8 +3,6 @@ package main
 import "fmt"
 
 
-
-
 func (c *Client) showMenu() {
 	fmt.Println("\n╔════════════════════════════════════════╗")
 	fmt.Println("║         🎴   MAGICARDS  🎴               ║")
@@ -19,7 +17,7 @@ func (c *Client) showMenu() {
 	fmt.Println("  menu (m)        → Mostrar este menu")
 	fmt.Println("  help (h)        → Ajuda")
 	fmt.Println("  list (ls)       → Listar suas cartas e IDs")
-	fmt.Println("  give (g)        → Enviar carta (precisa do ID da lista)")
+	fmt.Println("  give (g)        → Enviar carta")
 	fmt.Println("  exit            → Sair do jogo")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }

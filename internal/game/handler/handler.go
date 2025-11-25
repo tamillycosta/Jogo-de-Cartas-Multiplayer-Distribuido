@@ -1,6 +1,7 @@
 package handler
 
 import (
+	inventoryhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/inventoryHandler"
 	authhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/authHandler"
 	matchhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/matchHandler"
 	packgehandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/packgeHandler"
@@ -14,13 +15,15 @@ type Handler struct {
 	PackageHandler *packgehandler.PackageTopicHandler
 	MatchHandler 	*matchhandler.MatchTopicHandler
 	TradeHandler *tradehandler.TradeTopicHandler
+	InventoryHandler *inventoryhandler.InventoryHandler
 }
 
-func New(authHandler *authhandler.AuthTopicHandler, packageHandler *packgehandler.PackageTopicHandler, matchHandler *matchhandler.MatchTopicHandler, tradeHandler *tradehandler.TradeTopicHandler ) *Handler {
-	return &Handler{
-		AuthHandler: authHandler,
-		PackageHandler: packageHandler,
-		MatchHandler: matchHandler,
-		TradeHandler: tradeHandler,
-	}
+func New(auth *authhandler.AuthTopicHandler, pkg *packgehandler.PackageTopicHandler, match *matchhandler.MatchTopicHandler, trade *tradehandler.TradeTopicHandler, inv *inventoryhandler.InventoryHandler) *Handler {
+    return &Handler{
+        AuthHandler:    auth,
+        PackageHandler: pkg,
+        MatchHandler:   match,
+        TradeHandler:   trade,
+        InventoryHandler: inv,
+    }
 }

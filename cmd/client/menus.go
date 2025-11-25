@@ -18,6 +18,8 @@ func (c *Client) showMenu() {
 	fmt.Println("  attack (a)      → Atacar com carta ativa")
 	fmt.Println("  menu (m)        → Mostrar este menu")
 	fmt.Println("  help (h)        → Ajuda")
+	fmt.Println("  list (ls)       → Listar suas cartas e IDs")
+	fmt.Println("  give (g)        → Enviar carta (precisa do ID da lista)")
 	fmt.Println("  exit            → Sair do jogo")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }

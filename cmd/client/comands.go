@@ -108,3 +108,20 @@ func (c *Client) leaveMatch() {
 	c.conn.WriteJSON(msg)
 	fmt.Println("desistindo da partida")
 }
+
+func (c *Client) listCards() {
+	if c.playerID == "" {
+		fmt.Println("❌ Você precisa fazer login primeiro!")
+		return
+	}
+
+	msg := map[string]interface{}{
+		"type":  "publish",
+		"topic": "inventory.list",
+		"data": map[string]interface{}{
+			"player_id": c.playerID,
+		},
+	}
+	c.conn.WriteJSON(msg)
+	fmt.Println("\n📚 Buscando sua coleção de cartas...")
+}

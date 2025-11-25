@@ -14,7 +14,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/discovery"
 	gamesession "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/gameSession"
 	
-
+	inventoryhandler "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/handler/inventoryHandler"
 	matchglobal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_global"
 	matchlocal "Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/matchMacking/match_local"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/game/service/packageService"
@@ -100,6 +100,7 @@ func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*c
 	broker := pubsub.New()
 	authHandler := authhandler.New(authService, broker)
 	packgehandler := packgehandler.New(pkgService, broker)
+	inventoryHandler := inventoryhandler.New(cardRepo, broker)
 
 	tradeHandler := tradehandler.New(tradeSvc, broker, gameserver.SessionManager, playerRepo)
 	localMatchmaking := matchlocal.New(myServerInfo.ID, raftService,cardRepo)
@@ -108,7 +109,7 @@ func SetUpGame(router *gin.Engine, contractsService *contracts.ChainService) (*c
 	matchHandler := matchhandler.New(localMatchmaking, gameSessionManager, gameserver.SessionManager, broker)
 
 	// injeta todos os handlers da aplicação para o pub sub
-	handler := handler.New(authHandler, packgehandler, matchHandler, tradeHandler)
+	handler := handler.New(authHandler, packgehandler, matchHandler, tradeHandler, inventoryHandler)
 	wbSocket := websocket.New(broker, gameserver.SessionManager, gameSessionManager)
 	topics.SetUpTopics(*wbSocket, handler)
 

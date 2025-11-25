@@ -134,6 +134,9 @@ func main() {
 				continue
 			}
 			client.joinQueue()
+
+		case "list", "ls", "inv":
+			client.listCards()
 			
 		case "card", "c":
 			if !client.inMatch {
@@ -194,6 +197,10 @@ func (c *Client) listen() {
 		}
 
 		switch msgType {
+
+		case "inventory_list":
+			c.handleInventoryList(msg)
+
 		case "response":
 			c.handleResponse(msg)
 
@@ -314,4 +321,39 @@ func (c *Client) isServerDownError(msg map[string]interface{}) bool {
 	return false
 }
 
+func (c *Client) handleInventoryList(msg map[string]interface{}) {
+    cards, ok := msg["cards"].([]interface{})
+    if !ok {
+        fmt.Println("Erro ao ler cartas.")
+        return
+    }
 
+    fmt.Println("\n╔════════════════════════════════════════════════════════════════╗")
+    fmt.Println("║                       🎒 SEU INVENTÁRIO                        ║")
+    fmt.Println("╠═════╦══════════════════════╦══════════╦══════╦═════════════════╣")
+    fmt.Printf("║ %-3s ║ %-20s ║ %-8s ║ %-4s ║ %-15s ║\n", "ID", "Nome", "Raridade", "Pwr", "UUID (Para Troca)")
+    fmt.Println("╠═════╬══════════════════════╬══════════╬══════╬═════════════════╣")
+
+    for _, item := range cards {
+        cardMap := item.(map[string]interface{})
+        
+        name := cardMap["name"].(string)
+        if len(name) > 20 { name = name[:17] + "..." }
+        
+        rarity := cardMap["rarity"].(string)
+        power := cardMap["power"].(float64)
+        uuid := cardMap["id"].(string)
+        // Mostra os primeiros 8 chars do UUID para visualização rápida, 
+        // mas o usuário deve copiar o ID completo se necessário, ou você exibe ele todo.
+        // Aqui vou exibir ele completo na ultima coluna
+        
+        fmt.Printf("║ %-3d ║ %-20s ║ %-8s ║ %-4.0f ║ %-15s ║\n", 
+            int(cardMap["index"].(float64)), 
+            name, 
+            rarity, 
+            power, 
+            uuid)
+    }
+    fmt.Println("╚═════╩══════════════════════╩══════════╩══════╩═════════════════╝")
+    fmt.Println("💡 Dica: Use o UUID para enviar cartas com o comando 'give'")
+}

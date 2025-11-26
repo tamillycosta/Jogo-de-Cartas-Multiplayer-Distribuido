@@ -106,11 +106,7 @@ func main() {
 	client.showMenu()
 
 	for {
-		if client.inMatch {
-			fmt.Print("\n⚔️ > ")
-		} else {
-			fmt.Print("\n🎯 > ")
-		}
+		client.printPrompt()
 		
 		cmdLine, _ := reader.ReadString('\n')
 		cmdLine = strings.TrimSpace(cmdLine)
@@ -222,23 +218,28 @@ func (c *Client) listen() {
 
 		case "inventory_list":
 			c.handleInventoryList(msg)
+			c.printPrompt()
 
 		case "response":
 			c.handleResponse(msg)
 
 		case "package.response":
 			c.handlePackageResponse(msg)
+			c.printPrompt()
 
 		case "queue_joined":
 			queueSize, _ := msg["queue_size"].(float64)
 			fmt.Printf("\nVocê entrou na fila! (jogadores: %.0f)\n", queueSize)
 			fmt.Println(" Procurando oponente...")
+			c.printPrompt()
 
 		case "match_found":
 			c.handleMatchFound(msg)
+			c.printPrompt()
 
 		case "game_update":
 			c.handleGameUpdate(msg)
+			c.printPrompt()
 
 		case "subscribed":
 			
@@ -250,6 +251,7 @@ func (c *Client) listen() {
 			} else {
 				errMsg, _ := msg["error"].(string)
 				fmt.Printf("\n Erro: %s\n", errMsg)
+				c.printPrompt()
 			}
 
 		default:
@@ -344,39 +346,81 @@ func (c *Client) isServerDownError(msg map[string]interface{}) bool {
 }
 
 func (c *Client) handleInventoryList(msg map[string]interface{}) {
-    cards, ok := msg["cards"].([]interface{})
-    if !ok {
-        fmt.Println("Erro ao ler cartas.")
+    var cards []interface{}
+    if rawCards, ok := msg["cards"].([]interface{}); ok {
+        cards = rawCards
+    }
+
+    // Verifica se está vazio
+    if len(cards) == 0 {
+        fmt.Println("\n⚠️  Você não possui cartas no momento. Abra pacotes para começar!")
         return
     }
 
-    fmt.Println("\n╔════════════════════════════════════════════════════════════════╗")
-    fmt.Println("║                       🎒 SEU INVENTÁRIO                        ║")
-    fmt.Println("╠═════╦══════════════════════╦══════════╦══════╦═════════════════╣")
-    fmt.Printf("║ %-3s ║ %-20s ║ %-8s ║ %-4s ║ %-15s ║\n", "ID", "Nome", "Raridade", "Pwr", "UUID (Para Troca)")
-    fmt.Println("╠═════╬══════════════════════╬══════════╬══════╬═════════════════╣")
+    // Configuração de larguras fixas para garantir alinhamento
+    const (
+        wIdx    = 3
+        wName   = 22
+        wRarity = 10 // "LEGENDARY" tem 9 letras, precisa de espaço extra
+        wPower  = 5
+        wUUID   = 36 // UUID padrão tem 36 caracteres
+    )
 
+    // Função auxiliar para desenhar linhas horizontais
+    printLine := func(start, mid, end, fill string) {
+        fmt.Print(start)
+        fmt.Print(strings.Repeat(fill, wIdx+2))
+        fmt.Print(mid)
+        fmt.Print(strings.Repeat(fill, wName+2))
+        fmt.Print(mid)
+        fmt.Print(strings.Repeat(fill, wRarity+2))
+        fmt.Print(mid)
+        fmt.Print(strings.Repeat(fill, wPower+2))
+        fmt.Print(mid)
+        fmt.Print(strings.Repeat(fill, wUUID+2))
+        fmt.Println(end)
+    }
+
+    // Topo da tabela
+    fmt.Println()
+    printLine("╔", "╦", "╗", "═")
+
+    // Cabeçalho
+    fmt.Printf("║ %-*s ║ %-*s ║ %-*s ║ %-*s ║ %-*s ║\n",
+        wIdx, "ID",
+        wName, "Nome",
+        wRarity, "Raridade",
+        wPower, "Pwr",
+        wUUID, "UUID (Para Troca)")
+
+    // Separador
+    printLine("╠", "╬", "╣", "═")
+
+    // Linhas de dados
     for _, item := range cards {
         cardMap := item.(map[string]interface{})
-        
+
+        // Trata o nome para não quebrar a tabela
         name := cardMap["name"].(string)
-        if len(name) > 20 { name = name[:17] + "..." }
-        
+        if len(name) > wName {
+            name = name[:wName-3] + "..."
+        }
+
         rarity := cardMap["rarity"].(string)
         power := cardMap["power"].(float64)
         uuid := cardMap["id"].(string)
-        // Mostra os primeiros 8 chars do UUID para visualização rápida, 
-        // mas o usuário deve copiar o ID completo se necessário, ou você exibe ele todo.
-        // Aqui vou exibir ele completo na ultima coluna
-        
-        fmt.Printf("║ %-3d ║ %-20s ║ %-8s ║ %-4.0f ║ %-15s ║\n", 
-            int(cardMap["index"].(float64)), 
-            name, 
-            rarity, 
-            power, 
-            uuid)
+
+        fmt.Printf("║ %-*d ║ %-*s ║ %-*s ║ %-*.0f ║ %-*s ║\n",
+            wIdx, int(cardMap["index"].(float64)),
+            wName, name,
+            wRarity, rarity,
+            wPower, power,
+            wUUID, uuid)
     }
-    fmt.Println("╚═════╩══════════════════════╩══════════╩══════╩═════════════════╝")
+
+    // Rodapé
+    printLine("╚", "╩", "╝", "═")
+    fmt.Println("💡 Dica: Copie o UUID da última coluna para usar no comando de troca.")
 }
 
 func (c *Client) handleTradeResponse(msg map[string]interface{}) {
@@ -397,4 +441,12 @@ func (c *Client) handleTradeResponse(msg map[string]interface{}) {
         fmt.Printf("   Erro: %s\n", errorMsg)
     }
     fmt.Print("\n🎯 > ") // Restaura o prompt
+}
+
+func (c *Client) printPrompt() {
+	if c.inMatch {
+		fmt.Print("\n⚔️ > ")
+	} else {
+		fmt.Print("\n🎯 > ")
+	}
 }

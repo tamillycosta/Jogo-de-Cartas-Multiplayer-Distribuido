@@ -133,7 +133,11 @@ func main() {
 			client.joinQueue()
 
 		case "list", "ls", "inv":
-			client.listCards()
+			targetUser := ""
+			if len(parts) > 1 {
+				targetUser = parts[1]
+			}
+			client.listCards(targetUser)
 
 		case "give", "g":
 			if client.inMatch {
@@ -351,9 +355,23 @@ func (c *Client) handleInventoryList(msg map[string]interface{}) {
         cards = rawCards
     }
 
-    // Verifica se está vazio
+    // Tenta ler o nome do usuário alvo (se houver)
+    targetUser, _ := msg["target_username"].(string)
+
+    // Exibe o título apropriado
+    if targetUser != "" {
+        fmt.Printf("\n📦 INVENTÁRIO DE %s\n", targetUser)
+    } else {
+        fmt.Println("\n📦 SEU INVENTÁRIO")
+    }
+
+    // Verifica se está vazio com mensagens personalizadas
     if len(cards) == 0 {
-        fmt.Println("\n⚠️  Você não possui cartas no momento. Abra pacotes para começar!")
+        if targetUser != "" {
+            fmt.Printf("\n⚠️  %s não possui cartas visíveis no momento.\n", targetUser)
+        } else {
+            fmt.Println("\n⚠️  Você não possui cartas no momento. Abra pacotes para começar!")
+        }
         return
     }
 
@@ -361,9 +379,9 @@ func (c *Client) handleInventoryList(msg map[string]interface{}) {
     const (
         wIdx    = 3
         wName   = 22
-        wRarity = 10 // "LEGENDARY" tem 9 letras, precisa de espaço extra
+        wRarity = 10 
         wPower  = 5
-        wUUID   = 36 // UUID padrão tem 36 caracteres
+        wUUID   = 36 
     )
 
     // Função auxiliar para desenhar linhas horizontais
@@ -420,7 +438,13 @@ func (c *Client) handleInventoryList(msg map[string]interface{}) {
 
     // Rodapé
     printLine("╚", "╩", "╝", "═")
-    fmt.Println("💡 Dica: Copie o UUID da última coluna para usar no comando de troca.")
+    
+    // Dica contextual
+    if targetUser != "" {
+        fmt.Println("💡 Dica: Copie o UUID da carta que você quer e use no comando 'trade'.")
+    } else {
+        fmt.Println("💡 Dica: Copie o UUID da carta que você quer ofertar no comando 'trade'.")
+    }
 }
 
 func (c *Client) handleTradeResponse(msg map[string]interface{}) {

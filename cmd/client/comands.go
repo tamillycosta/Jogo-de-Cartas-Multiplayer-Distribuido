@@ -13,7 +13,6 @@ func (c *Client) createAccount(username string) {
 }
 
 
-
 func (c *Client) login(username string) {
 	msg := map[string]interface{}{
 		"type":  "publish",
@@ -109,21 +108,30 @@ func (c *Client) leaveMatch() {
 	fmt.Println("desistindo da partida")
 }
 
-func (c *Client) listCards() {
+func (c *Client) listCards(targetUser string) {
 	if c.playerID == "" {
 		fmt.Println("❌ Você precisa fazer login primeiro!")
 		return
 	}
 
+	data := map[string]interface{}{
+		"player_id": c.playerID,
+	}
+
+	// Se o usuário passou um nome, adiciona ao payload
+	if targetUser != "" {
+		data["target_username"] = targetUser
+		fmt.Printf("\n🔍 Espiando coleção de %s...\n", targetUser)
+	} else {
+		fmt.Println("\n📚 Buscando sua coleção de cartas...")
+	}
+
 	msg := map[string]interface{}{
 		"type":  "publish",
 		"topic": "inventory.list",
-		"data": map[string]interface{}{
-			"player_id": c.playerID,
-		},
+		"data":  data,
 	}
 	c.conn.WriteJSON(msg)
-	fmt.Println("\n📚 Buscando sua coleção de cartas...")
 }
 
 func (c *Client) giveCard(cardUUID, targetUsername string) {

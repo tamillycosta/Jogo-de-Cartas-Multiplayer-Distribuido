@@ -139,23 +139,24 @@ func main() {
 			}
 			client.listCards(targetUser)
 
-		case "give", "g":
+		case "trade", "t":
 			if client.inMatch {
         		fmt.Println("⚠️ Você não pode trocar cartas durante uma partida!")
         		continue
     		}
 
-    	// Valida argumentos: give <uuid> <nome>
-    	if len(parts) < 3 {
-        	fmt.Println("❌ Uso correto: give <ID_DA_CARTA> <NOME_DO_JOGADOR>")
-        	fmt.Println("   Dica: Use o comando 'list' para copiar o ID da carta.")
-        	continue
-    	}
+			// Valida argumentos: trade <uuid> <nome> <uuid>
+			if len(parts) < 3 {
+				fmt.Println("❌ Uso correto: give <ID_DA_SUA_CARTA> <NOME_DO_JOGADOR> <ID_DA_CARTA_DELE>")
+				fmt.Println("   Dica: Use o comando 'list' para copiar o ID da carta.")
+				continue
+			}
 
-    	cardUUID := parts[1]
-    	targetUser := parts[2]
+			myCardUUID := parts[1]
+			targetUser := parts[2]
+			wantedCardUUID := parts[3]
 
-    	client.giveCard(cardUUID, targetUser)
+			client.tradeCard(myCardUUID, targetUser, wantedCardUUID)
 			
 		case "card", "c":
 			if !client.inMatch {

@@ -134,25 +134,22 @@ func (c *Client) listCards(targetUser string) {
 	c.conn.WriteJSON(msg)
 }
 
-func (c *Client) giveCard(cardUUID, targetUsername string) {
-    // Verifica se o usuário está logado
+func (c *Client) tradeCard(myCardUUID, targetUser, wantedCardUUID string) {
     if c.playerID == "" {
         fmt.Println("❌ Você precisa fazer login primeiro!")
         return
     }
 
-    // Monta a mensagem para o tópico trade.request_trade
     msg := map[string]interface{}{
         "type":  "publish",
         "topic": "trade.request_trade",
         "data": map[string]interface{}{
-            "card_id":         cardUUID,       // O UUID que aparece no comando 'list'
-            "target_username": targetUsername, // O nome do jogador destino
+            "card_id":         myCardUUID,     // Minha carta
+            "target_username": targetUser,     // Oponente
+            "wanted_card_id":  wantedCardUUID, // Carta dele que eu quero
         },
     }
 
     c.conn.WriteJSON(msg)
-    fmt.Printf("\n🎁 Enviando solicitação de transferência...\n")
-    fmt.Printf("   Carta: %s\n", cardUUID)
-    fmt.Printf("   Para:  %s\n", targetUsername)
+    fmt.Printf("\n🔄 Enviando proposta de troca...\n")
 }

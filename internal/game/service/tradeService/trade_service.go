@@ -43,7 +43,7 @@ func New(
 }
 
 // RequestTrade é chamado pelo Pub/Sub. Ele verifica a posse e encaminha ao líder.
-func (ts *TradeService) RequestTrade(clientID string, cardID, targetPlayerID string) error {
+func (ts *TradeService) RequestTrade(clientID string, cardID, targetPlayerID, wantedCardID string) error {
 	playerID, exists := ts.sessionManager.GetPlayerID(clientID)
 	if !exists {
 		return errors.New("sessao do jogador nao encontrada")
@@ -59,6 +59,7 @@ func (ts *TradeService) RequestTrade(clientID string, cardID, targetPlayerID str
 		FromPlayerID: playerID,
 		ToPlayerID:   targetPlayerID,
 		CardID:       cardID,
+		WantedCardID: wantedCardID,
 		RequestID:    uuid.New().String(),
 	}
 
@@ -71,47 +72,51 @@ func (ts *TradeService) RequestTrade(clientID string, cardID, targetPlayerID str
 
 // ExecuteTradeAsLeader aplica o comando Raft (chamado diretamente ou via HTTP)
 func (ts *TradeService) ExecuteTradeAsLeader(cmd comands.TradeCardsCommand) error {
-	log.Printf("[TradeService] Sou líder! Iniciando processo de transferência %s...", cmd.RequestID)
+	log.Printf("[TradeService] Iniciando TROCA (Swap) %s...", cmd.RequestID)
 
-	// 1. Validar e Buscar dados necessários para Blockchain
-	if ts.chainService != nil {
-		log.Println("[TradeService] Executando na Blockchain...")
-		
-		// Buscar jogador remetente para obter Chave Privada
-		fromPlayer, err := ts.playerRepo.FindById(cmd.FromPlayerID)
-		if err != nil {
-			return fmt.Errorf("erro ao buscar remetente: %v", err)
-		}
+    // 1. Buscar dados dos jogadores (incluindo chaves privadas)
+    playerA, err := ts.playerRepo.FindById(cmd.FromPlayerID) // Quem pediu
+    if err != nil { return err }
+    
+    playerB, err := ts.playerRepo.FindById(cmd.ToPlayerID)   // O alvo
+    if err != nil { return err }
 
-		// Buscar jogador destinatário para obter Endereço Público
-		toPlayer, err := ts.playerRepo.FindById(cmd.ToPlayerID)
-		if err != nil {
-			return fmt.Errorf("erro ao buscar destinatário: %v", err)
-		}
+    if ts.chainService != nil {
+        ctx := context.Background()
+        
+        // Converter UUIDs para TokenIDs
+        tokenID_A, err := ts.chainService.CardChainService.GetTokenIDByCardID(ctx, cmd.CardID)
+        if err != nil { return err }
+        
+        tokenID_B, err := ts.chainService.CardChainService.GetTokenIDByCardID(ctx, cmd.WantedCardID)
+        if err != nil { return err }
 
-		// Buscar o TokenID da carta na blockchain usando o UUID (CardID)
-		ctx := context.Background()
-		tokenID, err := ts.chainService.CardChainService.GetTokenIDByCardID(ctx, cmd.CardID)
-		if err != nil {
-			return fmt.Errorf("erro ao resolver CardID para TokenID: %v", err)
-		}
+        log.Println("[Blockchain] Executando SwapCards...")
 
-		// Executar transferência na Blockchain (TransferCard do card_service.go)
-		// Isso vai usar a chave privada do fromPlayer para assinar a transação
-		err = ts.chainService.CardChainService.TransferCard(
-			ctx,
-			tokenID,
-			toPlayer.Address,
-			fromPlayer.PrivateKey,
-		)
-		if err != nil {
-			log.Printf("❌ [TradeService] Falha na Blockchain: %v", err)
-			return fmt.Errorf("falha na transação blockchain: %v", err)
-		}
-		log.Println("✅ [TradeService] Sucesso na Blockchain via TransferCard!")
-	} else {
-		log.Println("⚠️ [TradeService] Blockchain service não configurado, pulando etapa on-chain.")
-	}
+        // PASSO 1: Jogador B precisa aprovar o Jogador A (ou o servidor) para mover a carta dele
+        // Usamos a chave privada do Player B para assinar a aprovação
+        err = ts.chainService.CardChainService.ApproveForSwap(
+            ctx, 
+            tokenID_B,       // Carta do Jogador B
+            playerA.Address, // Jogador A pode mexer nela
+            playerB.PrivateKey, // Assinado por B
+        )
+        if err != nil {
+            return fmt.Errorf("falha ao aprovar carta na blockchain: %v", err)
+        }
+
+        // PASSO 2: Jogador A executa a troca (Swap)
+        // O contrato vai mover a Carta A para B, e puxar a Carta B para A
+        err = ts.chainService.CardChainService.SwapCards(
+            ctx,
+            tokenID_A, // Carta que A está dando
+            tokenID_B, // Carta que A está recebendo
+            playerA.PrivateKey, // Assinado por A
+        )
+        if err != nil {
+            return fmt.Errorf("falha no SwapCards blockchain: %v", err)
+        }
+    }
 
 	// 2. Se a blockchain confirmou (ou foi pulada), aplica no banco local via Raft
 	log.Printf("[TradeService] Replicando estado no banco de dados (Raft)...")

@@ -47,9 +47,10 @@ func (h *TradeTopicHandler) handleRequestTrade(clientID string, data interface{}
 
 	cardID, _ := dataMap["card_id"].(string)
 	targetUsername, _ := dataMap["target_username"].(string)
+	wantedCardID, _ := dataMap["wanted_card_id"].(string)
 
-	if cardID == "" || targetUsername == "" {
-		return h.sendError(clientID, "card_id e target_username sao obrigatorios")
+	if cardID == "" || targetUsername == "" || wantedCardID == "" {
+		return h.sendError(clientID, "Use: trade <SuaCartaID> <UsuarioDestino> <CartaDeleID>")
 	}
 
 	// 1. Buscar o ID do jogador destinatário pelo NOME usando o Repositório
@@ -65,7 +66,7 @@ func (h *TradeTopicHandler) handleRequestTrade(clientID string, data interface{}
 	log.Printf("[TradeHandler] Username '%s' resolvido para ID: %s", targetUsername, targetPlayer.ID)
 
 	// 2. Chamar o serviço com os IDs
-	err = h.tradeService.RequestTrade(clientID, cardID, targetPlayer.ID)
+	err = h.tradeService.RequestTrade(clientID, cardID, targetPlayer.ID, wantedCardID)
 
 	if err != nil {
 		log.Printf("[TradeHandler] Erro ao processar troca: %v", err)

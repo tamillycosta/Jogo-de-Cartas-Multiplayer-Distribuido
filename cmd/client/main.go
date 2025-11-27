@@ -58,6 +58,7 @@ func main() {
 
 	for {
 		clearScreen()
+		printLogo()
 		fmt.Println("🔐 Sistema de Autenticação")
 		fmt.Println("1) Login")
 		fmt.Println("2) Criar Conta")

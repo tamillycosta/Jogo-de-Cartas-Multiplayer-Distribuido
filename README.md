@@ -22,16 +22,23 @@
 ### 🌟 Rodando a **Blockchain** 
 
  Em um terminal rode:
+ - para aceitar apenas conexões localhost :
    ```bash
       ganache --port 7545 --deterministic
    ```
-     
-      Você vai ver algo assim:
-      Ganache CLI v7.9.1
+- para aceitar conexões locais :
+   ```bash
+       ganache --host 0.0.0.0 --port 7545
+   ```
+ 
+     Você vai ver algo assim:
+    ```bash
+      Ganache CLI v7.9.1   
       
       Available Accounts
       ==================
       (0) 0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1 (100 ETH)
+    ```
 ---   
 
 ### 🌟 Migrando os contratos inteligentes 
@@ -68,17 +75,23 @@
  ```
 #!/bin/bash
 
+export SERVER_ID="server-b"
+export SERVER_ADDRESS="endereço ip da maquina"
 export PORT=8080
 export GOSSIP_PORT=7947
-export RAFT_BOOTSTRAP=true 
+export RAFT_BOOTSTRAP=false (ou true se for o primeiro servidor)
+
 
 export DB_HOST=localhost
 export DB_PORT=3307
 export DB_USER=root
-export DB_PASSWORD=senha_a
-export DB_NAME=game_server_a
-export PK=chave privada
+export DB_PASSWORD=senha
+export DB_NAME=nomedobanco
+export PK=chaveprivada
 export DISCOVERY_PORT=9000
+
+
+export RPC_URL="http://ipDamaquinaHost-porta"
 
 export MATCH_CONTRACT=endereçoDocontrato
 export PACKAGE_CONTRACT=endereçoDocontrato
@@ -98,6 +111,9 @@ go run main.go
    ```
 2. Monte um arquivo executavel com a seguinte configuração e execute:
    ```bash
+      export RPC_URL="http://ipDamaquinaHost-porta"
+      export KEY="chavePrivada"
+
       export MATCH_CONTRACT=endereçoDoContrato
       export PACKAGE_CONTRACT=endereçoDoContrato
       export CARD_CONTRACT=endereçoDoContrato

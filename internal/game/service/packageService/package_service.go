@@ -213,6 +213,13 @@ func (ps *PackageService) openPackageAsLeader(playerID string) error {
 		return fmt.Errorf("erro ao abrir pacote: %v", err)
 	}
 
+
+	// . Busca pacote com cartas para pegar templateIDs
+	packageData, err := ps.packageRepo.FindByIdWithCards(availablePackage.ID)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar pacote com cartas: %v", err)
+	}
+	
 	// Transfere cartas (no Raft - estado local)
 	log.Printf("[PackageService] Transferindo cartas...")
 	err = ps.transferCards(availablePackage.ID, playerID)
@@ -226,12 +233,7 @@ func (ps *PackageService) openPackageAsLeader(playerID string) error {
 		return fmt.Errorf("erro ao carregar dados do jogador: %v", err)
 	}
 
-	// . Busca pacote com cartas para pegar templateIDs
-	packageData, err := ps.packageRepo.FindByIdWithCards(availablePackage.ID)
-	if err != nil {
-		return fmt.Errorf("erro ao buscar pacote com cartas: %v", err)
-	}
-
+	
 
 	//  busca ordem das cartas na blockchain 
 	pkgBlockchain, err := ps.chainService.PackageChainService.GetPackageInfo(

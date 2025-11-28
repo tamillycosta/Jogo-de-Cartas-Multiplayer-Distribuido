@@ -252,4 +252,3 @@ function approveForSwap(uint256 _tokenId, address _swapper) public {
         delete _playerTokensIndex[tokenId];
     }
 }
-

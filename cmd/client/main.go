@@ -27,7 +27,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	
 	clearScreen()
-	printBanner()
+	
 	// Lista de servidores possíveis
 	servers := []string{
 		"ws://localhost:8080/ws",

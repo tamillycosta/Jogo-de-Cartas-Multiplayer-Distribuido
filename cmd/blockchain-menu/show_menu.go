@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"time"
 
 	"math/big"
 	"os"
@@ -29,6 +30,8 @@ func showMenu() {
 	fmt.Println("    [8] Estatísticas de Partidas")
 	fmt.Println("    [9] Estatísticas de um Jogador")
 	fmt.Println()
+	fmt.Println("    [10] Transações")	
+	fmt.Println()
 	fmt.Println("    [0] Sair")
 	fmt.Println()
 	
@@ -47,7 +50,7 @@ func showSystemReport() {
 		return
 	}
 
-	fmt.Printf("\n   Total de Pacotes:       %d\n", summary.TotalPackages)
+	fmt.Printf("\n  Total de Pacotes:       %d\n", summary.TotalPackages)
 	fmt.Printf("   Pacotes Abertos:        %d\n", summary.TotalPackagesOpened)
 	fmt.Printf("   Pacotes Fechados:       %d\n", summary.TotalPackages-summary.TotalPackagesOpened)
 	fmt.Printf("   Total de Cartas (NFTs): %d\n", summary.TotalCards)
@@ -59,6 +62,59 @@ func showSystemReport() {
 
 	fmt.Println()
 }
+
+
+func listAllTransactions() {
+	fmt.Println("\n📝 TODAS AS TRANSAÇÕES")
+	fmt.Println(strings.Repeat("─", 100))
+
+	// Buscar transações do bloco 0 até o último
+	transactions, err := queryService.GetAllTransactions(ctx, 0, 0)
+	if err != nil {
+		fmt.Printf("❌ Erro: %v\n", err)
+		return
+	}
+
+	if len(transactions) == 0 {
+		fmt.Println("\n  ⚠️  Nenhuma transação encontrada.")
+		return
+	}
+
+	fmt.Printf("\n📊 Total de transações: %d\n\n", len(transactions))
+
+	// Cabeçalho
+	fmt.Printf("%-25s %-30s %-30s \n", 
+		"Bloco", "Status", "Hash", )
+	fmt.Println(strings.Repeat("─", 100))
+
+	// Listar transações	
+	for _, tx := range transactions {
+		hash := tx.Hash
+		if len(hash) > 42 {
+			hash = hash[:42] + "..."
+		}
+
+		timestamp := time.Unix(int64(tx.Timestamp), 0).Format("15:04:05")
+
+		statusIcon := "✅"
+		if tx.Status == "Failed" {
+			statusIcon = "❌"
+		}
+
+		fmt.Printf("%-6d %-20s %-10s %-45s %s\n",
+			tx.BlockNumber,
+			tx.Type,
+			statusIcon,
+			hash,
+			timestamp,
+		)
+	}
+
+	fmt.Println()
+}
+
+
+
 
 // ===== OPÇÃO 2: LISTAR TODOS OS PACOTES =====
 func listAllPackages() {
@@ -204,7 +260,7 @@ func showCardHistory() {
 		return
 	}
 
-	fmt.Printf("\n   Card ID:       %s\n", history.CardID)
+	fmt.Printf("\n Card ID:       %s\n", history.CardID)
 	fmt.Printf("   Token ID:      #%d\n", history.TokenID)
 	fmt.Printf("   Template:      %s\n", history.TemplateID)
 	fmt.Printf("   Pacote Origem: %s\n", shortenID(history.PackageID))
@@ -259,32 +315,6 @@ func showTransactionDetails() {
 	fmt.Println()
 }
 
-// ===== OPÇÃO 7: BUSCAR POR ENDEREÇO =====
-func searchByAddress() {
-	address := readInput("Digite o endereço (0x...): ")
-
-	fmt.Println("\n BUSCANDO INFORMAÇÕES...")
-	fmt.Println(strings.Repeat("─", 80))
-
-	// Buscar cartas
-	player, err := queryService.GetPlayerReport(ctx, "unknown", address)
-	if err != nil {
-		fmt.Printf(" Erro: %v\n", err)
-		return
-	}
-
-	fmt.Printf("\n Endereço: %s\n", address)
-	fmt.Printf("   Saldo:    %.6f ETH\n", player.BalanceETH)
-	fmt.Printf("   Cartas:   %d\n", player.TotalCards)
-
-	if player.TotalCards > 0 {
-		fmt.Println("\n  Templates das cartas:")
-		for i, card := range player.Cards {
-			fmt.Printf("    %d. %s (Token #%d)\n", i+1, card.TemplateID, card.TokenID)
-		}
-	}
-	fmt.Println()
-}
 
 // ===== OPÇÃO 8: ATIVIDADES RECENTES =====
 func showRecentActivity() {

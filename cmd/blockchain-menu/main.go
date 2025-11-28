@@ -5,6 +5,7 @@ import (
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/loader"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/service"
+	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/shared/util"
 	"context"
 	"fmt"
 	"log"
@@ -23,8 +24,8 @@ func main() {
 	fmt.Println(" Conectando à blockchain...")
 
 	cfg := blockchain.Config{
-		RPC:        "http://localhost:7545",
-		PrivateKey: "e485d098507f54e7733a205420dfddbe58db035fa577fc294ebd14db90767a52",
+		RPC:  util.GetEnv("RPC_URL", "")     ,
+		PrivateKey: util.GetEnv("KEY", ""),
 		ChainID:    1337,
 	}
 
@@ -73,6 +74,8 @@ func main() {
 			showMatchStatistics()
 		case "9":
 			showPlayerMatchStats()
+		case "10":
+			listAllTransactions()
 		case "0":
 			fmt.Println(" Até logo!")
 			return

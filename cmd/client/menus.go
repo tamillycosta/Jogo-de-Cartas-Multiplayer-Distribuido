@@ -57,14 +57,7 @@ func clearScreen() {
 	fmt.Print("\033[H\033[2J")
 }
 
-func printBanner() {
-	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║                                          ║")
-	fmt.Println("║         🎴  MAGICARDS CLIENT  🎴         ║")
-	fmt.Println("║                                          ║")
-	fmt.Println("╚══════════════════════════════════════════╝")
-	fmt.Println()
-}
+
 
 // Lida com erro de servidor caído
 func (c *Client) handleServerDown() {

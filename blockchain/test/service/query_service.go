@@ -8,16 +8,21 @@ import (
 
 	c "Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain"
 	"Jogo-de-Cartas-Multiplayer-Distribuido/internal/blockchain/loader"
+	
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
-// Serviço para fazer colsulta a blockchain 
+
+// Serviço para fazer colsulta a blockchain
 type BlockchainQueryService struct {
 	client    *c.BlockchainClient
 	Contracts *loader.Contracts
 }
+
+
 
 func NewBlockchainQueryService(client *c.BlockchainClient, Contracts *loader.Contracts) *BlockchainQueryService {
 	return &BlockchainQueryService{
@@ -28,12 +33,27 @@ func NewBlockchainQueryService(client *c.BlockchainClient, Contracts *loader.Con
 
 // ===== ESTRUTURAS DE RESULTADO =====
 
+type Transaction struct {
+	Hash        string
+	From        string
+	To          string
+	Value       string
+	BlockNumber uint64
+	Timestamp   uint64
+	Status      string
+	GasUsed     uint64
+	Type        string // "CardMinted", "CardTransferred", "PackageCreated", etc
+	Details     string
+}
+
+
 type PackageReport struct {
 	PackageID   string
 	CardIDs     []string
 	Opened      bool
 	OpenedBy    string
 	CreatedAt   uint64
+	 
 	BlockNumber uint64
 }
 
@@ -102,6 +122,62 @@ type CardHistoryReport struct {
 
 
 // ===== CONSULTAS =====
+
+
+// GetAllTransactions retorna todas as transações de um range de blocos
+func (ts *BlockchainQueryService) GetAllTransactions(ctx context.Context, fromBlock, toBlock uint64) ([]Transaction, error) {
+	var transactions []Transaction
+
+	// Se toBlock for 0, pega o último bloco
+	if toBlock == 0 {
+		header, err := ts.client.Client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("erro ao obter último bloco: %w", err)
+		}
+		toBlock = header.Number.Uint64()
+	}
+
+	fmt.Printf("🔍 Buscando transações dos blocos %d até %d...\n", fromBlock, toBlock)
+
+	for blockNum := fromBlock; blockNum <= toBlock; blockNum++ {
+		block, err := ts.client.Client.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+		if err != nil {
+			continue
+		}
+
+		for _, tx := range block.Transactions() {
+			receipt, err := ts.client.Client.TransactionReceipt(ctx, tx.Hash())
+			if err != nil {
+				continue
+			}
+
+
+			txInfo := Transaction{
+				Hash:        tx.Hash().Hex(),
+			
+				Value:       tx.Value().String(),
+				BlockNumber: blockNum,
+				Timestamp:   block.Time(),
+				GasUsed:     receipt.GasUsed,
+				Status:      "Success",
+			}
+
+			if tx.To() != nil {
+				txInfo.To = tx.To().Hex()
+			}
+
+			if receipt.Status == 0 {
+				txInfo.Status = "Failed"
+			}
+
+			
+			transactions = append(transactions, txInfo)
+		}
+	}
+
+	return transactions, nil
+}
+
 
 // Gera relatório completo de um pacote
 func (qs *BlockchainQueryService) GetPackageReport(ctx context.Context, packageID string) (*PackageReport, error) {
@@ -404,3 +480,10 @@ func (qs *BlockchainQueryService) GetCardHistory(ctx context.Context, cardID str
 }
 
 
+// Helper para encurtar endereços
+func shortAddress(addr string) string {
+	if len(addr) < 10 {
+		return addr
+	}
+	return addr[:6] + "..." + addr[len(addr)-4:]
+}

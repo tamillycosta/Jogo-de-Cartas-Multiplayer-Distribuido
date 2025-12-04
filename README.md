@@ -1,20 +1,30 @@
 # 🌟 MagiCards 🌟
 
-#   Links Importantes 
--   Ganache (https://archive.trufflesuite.com/ganache/)
--   Truffle (https://www.softobotics.org/blogs/truffle-a-comprehensive-guide-to-smart-contract-development-on-the-blockchain/)
--   Abigen (https://geth.ethereum.org/docs/tools/abigen)
+
+##  Links Importantes 
+-   [Ganache](https://archive.trufflesuite.com/ganache/)
+-   [Truffle](https://www.softobotics.org/blogs/truffle-a-comprehensive-guide-to-smart-contract-development-on-the-blockchain/)
+-   [Abigen](https://geth.ethereum.org/docs/tools/abigen)
 
 
 ## 🚀 Como rodar o projeto
 
-### ✅ Depêndencias 
-- # Instalar Truffle e Ganache 
-   npm install -g truffle ganache
-- # Instalar abigen (ferramenta Go)
-   go install github.com/ethereum/go-ethereum/cmd/abigen@latest
-- # Instalar dependências do projeto (npm)
-   npm install 
+### ✅ Depêndencias
+Para rodar o projeto, é necessário instalar o npm (depende do seu sistema operacional) e as seguintes dependências:
+- Instale o truffle e ganache:
+   ```bash
+      npm install -g truffle ganache
+   ```
+   
+- Instale o abigen (ferramenta Go):
+   ```bash
+      go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+   ```
+   
+- Instale as dependências do projeto (npm):
+   ```bash
+      npm install
+   ``` 
 
 
 ---
@@ -64,15 +74,16 @@
 
 
 ### 🌟 Rodando banco de dados local 
- ```
-      sudo docker-compose up --build mysql-a
+```bash
+   sudo docker-compose up --build mysql-a
 ```
+
 
 ---
 
 ### 🌟 Rodando servidor 
  Monte um arquivo executavel com a seguinte configuração e execute:
- ```
+ ```bash
 #!/bin/bash
 
 export SERVER_ID="server-b"
@@ -99,11 +110,10 @@ export CARD_CONTRACT=endereçoDocontrato
 
 cd cmd
 go run main.go
-
 ```
 ---
 
-### 🌟 Acessando  **Menu Interativo da Bloockchain**  
+### 🌟 Acessando  **Menu Interativo da Blockchain**  
 
 1. Navegue até o diretório do menu:
    ```bash  
@@ -118,7 +128,8 @@ go run main.go
       export PACKAGE_CONTRACT=endereçoDoContrato
       export CARD_CONTRACT=endereçoDoContrato
    
-      go run . 
+      go run .
+   ```
 ---
 
 ### 🌟 Acessando como **Cliente**  
@@ -135,7 +146,7 @@ go run main.go
 ---
 
 ### 🌟 Dicas de uso com truffle
-para pegar o endereço de um contrato
+Para obter o endereço de um contrato:
    ```bash  
       truffle console
       > NOME DO CONTRATO.address

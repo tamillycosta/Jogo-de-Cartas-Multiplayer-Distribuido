@@ -116,9 +116,10 @@ go run main.go
 ### 🌟 Acessando  **Menu Interativo da Blockchain**  
 
 1. Navegue até o diretório do menu:
-   ```bash  
+   ```bash 
       cd cmd/blockchain-menu
    ```
+   
 2. Monte um arquivo executavel com a seguinte configuração e execute:
    ```bash
       export RPC_URL="http://ipDamaquinaHost-porta"

@@ -14,10 +14,11 @@ import (
 
 type Client struct {
 	conn       *websocket.Conn
-	clientID   string
-	matchID    string
-	playerID   string
-	username   string
+	clientID    string
+	matchID     string
+	playerID    string
+	username    string
+	address     string
 	currentTurn string
 	turnNumber  int
 	inMatch     bool
@@ -139,6 +140,9 @@ func main() {
 				targetUser = parts[1]
 			}
 			client.listCards(targetUser)
+
+		case "me", "info":
+			client.showPlayerInfo()
 
 		case "trade", "t":
 			if client.inMatch {
@@ -295,6 +299,10 @@ func (c *Client) handleResponse(msg map[string]interface{}) {
                 if playerID, ok := player["id"].(string); ok {
                     c.playerID = playerID
                 }
+
+				if address, ok := player["public_key"].(string); ok {
+					c.address = address
+				}
             }
         } else {
             errMsg, _ := data["error"].(string)

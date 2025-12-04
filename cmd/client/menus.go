@@ -25,6 +25,7 @@ func (c *Client) showMenu() {
 	fmt.Printf("  %-15s → %s\n", "leave (l)", "Desistir da partida atual")
 	
 	fmt.Println("\n  ⚙️  SISTEMA")
+	fmt.Printf("  %-15s → %s\n", "me (info)", "Ver meu ID e Endereço")
 	fmt.Printf("  %-15s → %s\n", "menu (m)", "Mostrar este menu")
 	fmt.Printf("  %-15s → %s\n", "help (h)", "Ajuda detalhada")
 	fmt.Printf("  %-15s → %s\n", "exit", "Sair do jogo")

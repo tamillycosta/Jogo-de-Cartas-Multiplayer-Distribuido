@@ -153,3 +153,19 @@ func (c *Client) tradeCard(myCardUUID, targetUser, wantedCardUUID string) {
     c.conn.WriteJSON(msg)
     fmt.Printf("\n🔄 Enviando proposta de troca...\n")
 }
+
+
+func (c *Client) showPlayerInfo() {
+	if c.playerID == "" {
+		fmt.Println("❌ Você precisa fazer login primeiro!")
+		return
+	}
+
+	fmt.Println("\n╔══════════════════════════════════════════╗")
+	fmt.Println("║          👤 PERFIL DO JOGADOR            ║")
+	fmt.Println("╚══════════════════════════════════════════╝")
+	fmt.Printf("\n 👤 Usuário:  %s", c.username)
+	fmt.Printf("\n 🆔 Player ID: %s", c.playerID)
+	fmt.Printf("\n 🌍 Endereço (Wallet): %s", c.address)
+	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+}
